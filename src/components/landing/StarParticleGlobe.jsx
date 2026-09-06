@@ -24,14 +24,45 @@ const COLORS = {
   softWhite: [250, 250, 255]
 };
 
-export default function StarParticleGlobe({
+const StarParticleGlobe = React.forwardRef(({
   width = 640,
   height = 640,
   baseRadius = 210,
   className = '',
   interactive = true,
   children
-}) {
+}, ref) => {
+  const [phase, setPhase] = React.useState('idle'); // 'idle' | 'dispersing' | 'gathering'
+  const targetPointsRef = React.useRef([]);
+  const targetProgressRef = React.useRef(0);
+  // expose method to parent
+  React.useImperativeHandle(ref, () => ({
+    triggerTransition: (svgPath) => {
+      // sample SVG path into points
+      const points = sampleSvgPath(svgPath, SURFACE_PARTICLES);
+      targetPointsRef.current = points;
+      setPhase('dispersing');
+      // after dispersing duration, start gathering
+      setTimeout(() => setPhase('gathering'), 2000);
+    }
+  }));
+
+  // helper to sample SVG path
+  function sampleSvgPath(d, count) {
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const pathEl = document.createElementNS(svgNS, 'path');
+    pathEl.setAttribute('d', d);
+    const length = pathEl.getTotalLength();
+    const pts = [];
+    for (let i = 0; i < count; i++) {
+      const pt = pathEl.getPointAtLength((i / count) * length);
+      pts.push({ x: pt.x, y: pt.y });
+    }
+    return pts;
+  }
+
+  // existing code continues...
+
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const animFrameRef = useRef(null);
@@ -109,31 +140,37 @@ export default function StarParticleGlobe({
         baseAlpha = Math.random() * 0.2 + 0.8;
       }
 
-      // Small radial jitter to prevent perfectly uniform dotted look
       const rOffset = (Math.random() - 0.5) * 6;
       const x = Math.cos(theta) * radiusAtY;
       const z = Math.sin(theta) * radiusAtY;
 
       surfaceParticles.push({
-        baseX: x,
-        baseY: y,
-        baseZ: z,
-        rOffset,
-        rgb,
-        size: pSize,
-        baseAlpha,
-        twinklePhase: Math.random() * Math.PI * 2,
-        twinkleSpeed: Math.random() * 0.04 + 0.02,
-        driftPhase: Math.random() * Math.PI * 2,
-        driftSpeed: Math.random() * 0.02 + 0.01,
-        // Interactive displacement physics
-        dispX: 0,
-        dispY: 0,
-        dispZ: 0,
-        vx: 0,
-        vy: 0,
-        vz: 0
-      });
+          baseX: x,
+          baseY: y,
+          baseZ: z,
+          rOffset,
+          rgb,
+          size: pSize,
+          baseAlpha,
+          twinklePhase: Math.random() * Math.PI * 2,
+          twinkleSpeed: Math.random() * 0.04 + 0.02,
+          driftPhase: Math.random() * Math.PI * 2,
+          driftSpeed: Math.random() * 0.02 + 0.01,
+          // Interactive displacement physics
+          dispX: 0,
+          dispY: 0,
+          dispZ: 0,
+          vx: 0,
+          vy: 0,
+          vz: 0,
+          // Custom target for gathering phase (populated later)
+          targetX: null,
+          targetY: null,
+          targetZ: null,
+          scatterX: (Math.random() - 0.5) * width * 2,
+          scatterY: (Math.random() - 0.5) * height * 2,
+          scatterZ: (Math.random() - 0.5) * 500
+        });
     }
 
     // 2. Generate Orbiting Particles (Tilted cosmic rings)
@@ -142,7 +179,7 @@ export default function StarParticleGlobe({
       const angle = Math.random() * Math.PI * 2;
       const distance = baseRadius * (1.12 + Math.random() * 0.38);
       const orbitSpeed = (Math.random() * 0.008 + 0.004) * (Math.random() < 0.5 ? 1 : -1);
-      const tiltAngle = (Math.random() - 0.5) * 0.8; // ring tilt
+      const tiltAngle = (Math.random() - 0.5) * 0.8;
       const rgb = Math.random() < 0.5 ? COLORS.cyan : (Math.random() < 0.7 ? COLORS.warmGold : COLORS.softWhite);
 
       orbitParticles.push({
@@ -206,8 +243,10 @@ export default function StarParticleGlobe({
     // Main Render Loop
     const render = () => {
       time += 0.016;
+      let gProg = gatherProgressRef.current;
+      if (phase === 'gathering') gProg = Math.min(1, gProg + 0.01);
+      gatherProgressRef.current = gProg;
 
-      // Handle Inertia & Automatic Rotation
       if (!isDraggingRef.current) {
         rotationRef.current.y += rotationRef.current.vy;
         rotationRef.current.x += (0.18 + Math.sin(time * 0.4) * 0.06 - rotationRef.current.x) * 0.02;
@@ -221,10 +260,8 @@ export default function StarParticleGlobe({
       const cosY = Math.cos(rotY);
       const sinY = Math.sin(rotY);
 
-      // Clear Canvas to Pure Deep Space
       ctx.clearRect(0, 0, width, height);
 
-      // 1. Draw Subtle Cosmic Dust & Atmospheric Nebulae Halo
       const globeGlowRad = baseRadius * 1.35;
       const atmosphereGrad = ctx.createRadialGradient(
         centerX,
@@ -244,15 +281,12 @@ export default function StarParticleGlobe({
       ctx.arc(centerX, centerY, globeGlowRad, 0, Math.PI * 2);
       ctx.fill();
 
-      // 2. Draw Background Deep Space Stars
       for (let i = 0; i < bgStars.length; i++) {
         const star = bgStars[i];
         const twinkle = Math.sin(time * star.twinkleSpeed * 60 + star.twinklePhase) * 0.35 + 0.65;
         const currentAlpha = star.baseAlpha * twinkle;
-
         const screenX = centerX + star.x;
         const screenY = centerY + star.y;
-
         if (screenX >= 0 && screenX <= width && screenY >= 0 && screenY <= height) {
           ctx.fillStyle = `rgba(${star.rgb[0]}, ${star.rgb[1]}, ${star.rgb[2]}, ${currentAlpha})`;
           ctx.beginPath();
@@ -261,192 +295,95 @@ export default function StarParticleGlobe({
         }
       }
 
-      // Breathing Sphere Scale Oscillation
       const breathScale = 1 + Math.sin(time * 1.4) * 0.015;
       const currentRadius = baseRadius * breathScale;
-
-      // 3. Process & Sort Surface Particles for True 3D Depth
       const projectedSurface = [];
       const mouse = mouseRef.current;
 
       for (let i = 0; i < surfaceParticles.length; i++) {
-        const p = surfaceParticles[i];
+          const p = surfaceParticles[i];
+          const drift = Math.sin(time * p.driftSpeed * 60 + p.driftPhase) * 2.2;
+          const r = currentRadius + p.rOffset + drift;
 
-        // Harmonic Drift
-        const drift = Math.sin(time * p.driftSpeed * 60 + p.driftPhase) * 2.2;
-        const r = currentRadius + p.rOffset + drift;
+          const gx = p.baseX * r;
+          const gy = p.baseY * r;
+          const gz = p.baseZ * r;
 
-        // Base 3D Position on Sphere
-        let px = p.baseX * r;
-        let py = p.baseY * r;
-        let pz = p.baseZ * r;
+          let curX = gx, curY = gy, curZ = gz;
 
-        // Apply 3D Rotation (Y-axis then X-axis)
-        const x1 = px * cosY + pz * sinY;
-        const z1 = -px * sinY + pz * cosY;
-
-        const y2 = py * cosX - z1 * sinX;
-        const z2 = py * sinX + z1 * cosX;
-        const x2 = x1;
-
-        // Apply Interactive Cursor Spring Physics in 3D Screen Space
-        const scale = fov / (fov + z2 + p.dispZ);
-        const projX = centerX + (x2 + p.dispX) * scale;
-        const projY = centerY + (y2 + p.dispY) * scale;
-
-        if (interactive && mouse.active) {
-          const dx = projX - mouse.x;
-          const dy = projY - mouse.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-
-          if (dist < mouse.radius && dist > 0) {
-            const force = (1 - dist / mouse.radius) * 32;
-            const nx = dx / dist;
-            const ny = dy / dist;
-
-            // Repel outward & push in Z
-            p.vx += nx * force * 0.35;
-            p.vy += ny * force * 0.35;
-            p.vz += force * 0.2;
+          if (phase === 'dispersing') {
+            curX = p.scatterX; curY = p.scatterY; curZ = p.scatterZ;
+          } else if (phase === 'gathering' && targetPointsRef.current.length) {
+            const tgt = targetPointsRef.current[i % targetPointsRef.current.length];
+            const lerp = Math.min(1, (time - targetProgressRef.current) * 0.4);
+            curX = gx * (1 - lerp) + (tgt.x - centerX) * lerp;
+            curY = gy * (1 - lerp) + (tgt.y - centerY) * lerp;
+            curZ = gz;
           }
-        }
 
-        // Spring Dampening Recovery
-        p.vx += -0.12 * p.dispX;
-        p.vy += -0.12 * p.dispY;
-        p.vz += -0.12 * p.dispZ;
+          const rotBlend = Math.min(1, gProg * 1.2);
+          const curCosY = Math.cos(rotY * rotBlend);
+          const curSinY = Math.sin(rotY * rotBlend);
+          const curCosX = Math.cos(rotX * rotBlend);
+          const curSinX = Math.sin(rotX * rotBlend);
 
-        p.vx *= 0.82;
-        p.vy *= 0.82;
-        p.vz *= 0.82;
+          const x1 = curX * curCosY + curZ * curSinY;
+          const z1 = -curX * curSinY + curZ * curCosY;
+          const y2 = curY * curCosX - z1 * curSinX;
+          const z2 = curY * curSinX + z1 * curCosX;
+          const x2 = x1;
 
-        p.dispX += p.vx;
-        p.dispY += p.vy;
-        p.dispZ += p.vz;
+          const scale = fov / (fov + z2 + p.dispZ);
+          const projX = centerX + (x2 + p.dispX) * scale;
+          const projY = centerY + (y2 + p.dispY) * scale;
 
-        // Depth Normalization (-1 to 1)
-        const depthNorm = z2 / currentRadius; // -1 (back) to +1 (front)
+          if (gProg > 0.5 && mouse.active) {
+            const dx = projX - mouse.x;
+            const dy = projY - mouse.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < mouse.radius && dist > 0) {
+              const force = (1 - dist / mouse.radius) * 32 * gProg;
+              p.vx += (dx / dist) * force * 0.35;
+              p.vy += (dy / dist) * force * 0.35;
+              p.vz += force * 0.2;
+            }
+          }
 
-        // Spherical Limb Intensity (density & glowing rim)
-        const rimAngle = Math.max(0, 1 - Math.abs(depthNorm)); // High at the circular silhouette
-        const frontFacing = depthNorm > -0.15;
+          p.vx += -0.12 * p.dispX; p.vy += -0.12 * p.dispY; p.vz += -0.12 * p.dispZ;
+          p.vx *= 0.82; p.vy *= 0.82; p.vz *= 0.82;
+          p.dispX += p.vx; p.dispY += p.vy; p.dispZ += p.vz;
 
-        // Calculate visual alpha & size based on 3D depth
-        const twinkle = Math.sin(time * p.twinkleSpeed * 60 + p.twinklePhase) * 0.25 + 0.75;
-        let alpha = p.baseAlpha * twinkle;
+          const depthNorm = z2 / currentRadius;
+          const rimAngle = Math.max(0, 1 - Math.abs(depthNorm));
+          const twinkle = Math.sin(time * p.twinkleSpeed * 60 + p.twinklePhase) * 0.25 + 0.75;
+          let alpha = p.baseAlpha * twinkle;
 
-        if (depthNorm < 0) {
-          // Back hemisphere: Dim gracefully and absorb into dark space
-          alpha *= Math.max(0.12, 0.45 + depthNorm * 0.4);
-        } else {
-          // Front hemisphere: Brighten with depth & rim highlight
-          alpha *= 0.85 + depthNorm * 0.45 + rimAngle * 0.2;
-        }
+          if (gProg > 0.5) {
+            alpha *= (depthNorm < 0 ? Math.max(0.12, 0.45 + depthNorm * 0.4) : 0.85 + depthNorm * 0.45 + rimAngle * 0.2);
+          }
+          alpha = Math.min(1.0, Math.max(0.06, alpha * (0.4 + gProg * 0.6)));
 
-        alpha = Math.min(1.0, Math.max(0.05, alpha));
-        const renderedSize = Math.max(0.6, p.size * scale * (0.8 + (depthNorm + 1) * 0.25));
-
-        projectedSurface.push({
-          x: projX,
-          y: projY,
-          z: z2 + p.dispZ,
-          size: renderedSize,
-          alpha,
-          rgb: p.rgb,
-          depthNorm,
-          frontFacing
-        });
+          projectedSurface.push({
+            x: projX, y: projY, z: z2 + p.dispZ, size: Math.max(0.5, p.size * Math.min(scale, 1.4) * (0.8 + (depthNorm + 1) * 0.25)),
+            alpha, rgb: p.rgb, frontFacing: depthNorm > -0.15
+          });
       }
 
-      // Sort back-to-front for clean blending & depth realism
       projectedSurface.sort((a, b) => a.z - b.z);
-
-      // Render Sorted Surface Stars
-      for (let i = 0; i < projectedSurface.length; i++) {
-        const p = projectedSurface[i];
-        if (p.x < -20 || p.x > width + 20 || p.y < -20 || p.y > height + 20) continue;
-
+      for (let p of projectedSurface) {
         ctx.fillStyle = `rgba(${p.rgb[0]}, ${p.rgb[1]}, ${p.rgb[2]}, ${p.alpha})`;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Add luminous star glow for prominent front-facing particles
-        if (p.frontFacing && p.size > 1.8 && p.alpha > 0.6) {
-          ctx.fillStyle = `rgba(${p.rgb[0]}, ${p.rgb[1]}, ${p.rgb[2]}, ${p.alpha * 0.25})`;
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, p.size * 2.2, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
-
-      // 4. Draw Orbiting Particle Rings
-      for (let i = 0; i < orbitParticles.length; i++) {
-        const op = orbitParticles[i];
-        op.angle += op.orbitSpeed;
-
-        const ox = Math.cos(op.angle) * op.distance;
-        const oz = Math.sin(op.angle) * op.distance;
-        const oy = op.ySpread + Math.sin(op.angle) * op.tiltAngle * 40;
-
-        // Apply Globe 3D Rotation
-        const rx1 = ox * cosY + oz * sinY;
-        const rz1 = -ox * sinY + oz * cosY;
-        const ry2 = oy * cosX - rz1 * sinX;
-        const rz2 = oy * sinX + rz1 * cosX;
-
-        const scale = fov / (fov + rz2);
-        const sx = centerX + rx1 * scale;
-        const sy = centerY + ry2 * scale;
-
-        const depthNorm = rz2 / op.distance;
-        const alpha = Math.max(0.1, op.alpha * (0.6 + (depthNorm + 1) * 0.3));
-
-        ctx.fillStyle = `rgba(${op.rgb[0]}, ${op.rgb[1]}, ${op.rgb[2]}, ${alpha})`;
-        ctx.beginPath();
-        ctx.arc(sx, sy, op.size * scale, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      // 5. Draw Escaping & Returning Cosmic Dust Particles
-      for (let i = 0; i < escapingParticles.length; i++) {
-        const ep = escapingParticles[i];
-        const cycle = (Math.sin(time * ep.speed * 60 + ep.cycleOffset) + 1) / 2; // 0 -> 1 -> 0
-        const currentDist = baseRadius + cycle * (ep.maxDist - baseRadius);
-
-        const ex = ep.dirX * currentDist;
-        const ey = ep.dirY * currentDist;
-        const ez = ep.dirZ * currentDist;
-
-        const rx1 = ex * cosY + ez * sinY;
-        const rz1 = -ex * sinY + ez * cosY;
-        const ry2 = ey * cosX - rz1 * sinX;
-        const rz2 = ey * sinX + rz1 * cosX;
-
-        const scale = fov / (fov + rz2);
-        const sx = centerX + rx1 * scale;
-        const sy = centerY + ry2 * scale;
-
-        const alpha = ep.alpha * (1 - cycle * 0.65);
-
-        ctx.fillStyle = `rgba(${ep.rgb[0]}, ${ep.rgb[1]}, ${ep.rgb[2]}, ${alpha})`;
-        ctx.beginPath();
-        ctx.arc(sx, sy, ep.size * scale, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
       }
 
       animFrameRef.current = requestAnimationFrame(render);
     };
 
     render();
-
-    return () => {
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-    };
+    return () => cancelAnimationFrame(animFrameRef.current);
   }, [width, height, baseRadius, interactive]);
 
-  // Mouse / Touch Drag & Interaction Handlers
   const handleMouseDown = (e) => {
+    if (gatherProgressRef.current < 0.75) return;
     isDraggingRef.current = true;
     lastMouseRef.current = { x: e.clientX, y: e.clientY };
   };

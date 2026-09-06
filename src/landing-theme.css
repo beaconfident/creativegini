@@ -280,18 +280,86 @@ body {
   transition: all 0.3s var(--ease-matter);
 }
 
-/* Monumental Swiss Editorial Headline (Left-Aligned) */
-.intro-hero-title {
-  font-family: var(--font-display);
-  font-size: clamp(42px, 6.5vw, 92px) !important;
-  font-weight: 700 !important;
-  line-height: 1.02 !important;
-  letter-spacing: -0.04em !important;
-  color: #FFFFFF !important;
-  text-shadow: 0 0 35px rgba(0, 217, 255, 0.3) !important;
-  max-width: 680px;
-  margin: 0;
-  text-align: left;
+/* Screen 1 Official Logo Image Styling */
+.screen1-logo-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.screen1-hero-logo-img {
+  max-width: min(620px, 88vw);
+  height: auto;
+  max-height: 220px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 35px rgba(0, 217, 255, 0.4)) drop-shadow(0 0 60px rgba(168, 85, 247, 0.25));
+  animation: heroLogoPulse 3.5s ease-in-out infinite alternate;
+}
+
+@keyframes heroLogoPulse {
+  0% { filter: drop-shadow(0 0 30px rgba(0, 217, 255, 0.35)) drop-shadow(0 0 50px rgba(168, 85, 247, 0.2)); transform: scale(1); }
+  100% { filter: drop-shadow(0 0 45px rgba(236, 72, 153, 0.45)) drop-shadow(0 0 75px rgba(0, 217, 255, 0.35)); transform: scale(1.015); }
+}
+
+.brand-word-creative {
+  background: linear-gradient(135deg, #FFFFFF 0%, #38BDF8 55%, #00D9FF 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 0 50px rgba(0, 217, 255, 0.4);
+}
+
+.brand-word-gini {
+  background: linear-gradient(135deg, #A855F7 0%, #EC4899 50%, #FFB000 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 0 50px rgba(236, 72, 153, 0.4);
+}
+
+/* Typewriter Subtext Styling */
+.typewriter-subtext-container {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 24px;
+  padding: 12px 28px;
+  background: rgba(6, 17, 26, 0.85);
+  border: 1px solid rgba(0, 217, 255, 0.25);
+  border-radius: 999px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: clamp(13px, 1.4vw, 17px);
+  color: #E2E8F0;
+  max-width: 880px;
+  line-height: 1.5;
+  text-align: center;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.typewriter-prompt-symbol {
+  color: #00D9FF;
+  font-weight: 800;
+  font-size: 1.15em;
+  margin-right: 4px;
+}
+
+.typewriter-text {
+  color: #F8FAFC;
+  letter-spacing: 0.02em;
+}
+
+.typewriter-cursor {
+  display: inline-block;
+  color: #00D9FF;
+  font-weight: 900;
+  margin-left: 3px;
+  animation: blinkTypewriter 0.75s infinite ease-in-out;
+}
+
+@keyframes blinkTypewriter {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
 }
 
 .roll-char-span {

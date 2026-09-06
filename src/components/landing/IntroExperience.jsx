@@ -5,8 +5,8 @@ import { Compass, Search, CheckCircle2 } from 'lucide-react';
 const TITLES = [
   {
     id: 0,
-    text: "WELCOME TO THE UNIVERSE",
-    subtext: "Where knowledge begins as a single particle.",
+    text: "CREATIVE GINI",
+    subtext: "The Autonomous AI Growth Engine for Strategy, Content & Multi-Channel Scaling.",
     stateName: "SCENE 01 // COSMIC ORIGIN",
     icon: Compass,
     accent: "#00D9FF",
@@ -14,14 +14,41 @@ const TITLES = [
   },
   {
     id: 1,
-    text: "DISCOVER THE HIDDEN KNOWLEDGE",
-    subtext: "Unlock the cosmic intelligence within your product.",
+    text: "CREATIVE GINI",
+    subtext: "Discover hidden market intelligence & unleash 12+ automated growth channels in real-time.",
     stateName: "SCENE 02 // THE GENIE MATRIX",
     icon: CheckCircle2,
-    accent: "#FFB000",
-    glow: "rgba(255, 176, 0, 0.4)"
+    accent: "#8B5CF6",
+    glow: "rgba(139, 92, 246, 0.4)"
   }
 ];
+
+function TypewriterSubtext({ text, speed = 25 }) {
+  const [displayedText, setDisplayedText] = useState('');
+
+  useEffect(() => {
+    setDisplayedText('');
+    let index = 0;
+    const timer = setInterval(() => {
+      if (index < text.length) {
+        setDisplayedText(text.substring(0, index + 1));
+        index++;
+      } else {
+        clearInterval(timer);
+      }
+    }, speed);
+
+    return () => clearInterval(timer);
+  }, [text, speed]);
+
+  return (
+    <div className="typewriter-subtext-container">
+      <span className="typewriter-prompt-symbol">&gt;&nbsp;</span>
+      <span className="typewriter-text">{displayedText}</span>
+      <span className="typewriter-cursor">|</span>
+    </div>
+  );
+}
 
 // Multi-stage gradient color waypoints along the continuous journey
 // p in [0.0, 2.0]
@@ -214,86 +241,59 @@ export default function IntroExperience({ isComplete, setIsComplete, isActive = 
     };
   }, [isComplete, isActive]);
 
-  // Unified Multi-Stage Continuous Gradient & Title Morphing Transition
+  // Unified Multi-Stage Continuous Gradient & Stationary Title Transition (In-Place Text Change, No Frame Movement)
   const animateToState = (targetState, direction = 'down') => {
     if (isAnimatingRef.current) return;
     isAnimatingRef.current = true;
 
     const fromProg = progressRef.current;
     const toProg = targetState;
-    const isDown = direction === 'down';
 
-    // 1. Synchronized Title Roll Out (Characters flip & blur progressively)
+    // 1. Title fade out strictly in-place (no vertical shift, no scale, no tilt)
     if (titleContainerRef.current) {
       const currentChars = titleContainerRef.current.querySelectorAll('.roll-char-span');
       if (currentChars.length) {
         gsap.to(currentChars, {
-          y: isDown ? -65 : 65,
-          scale: 0.68,
+          y: 0,
+          scale: 1,
           opacity: 0,
-          filter: 'blur(10px)',
-          duration: 0.42,
-          stagger: 0.015,
-          ease: 'power2.in'
+          duration: 0.3,
+          stagger: 0.008,
+          ease: 'power2.out'
         });
       }
     }
 
-    // 2. Continuous Multi-Stage Gradient & 3D Spatial Timeline
+    // 2. Stationary timeline transition (keep world stage locked without 3D rotation/scale)
     const proxy = { p: fromProg };
     if (morphTweenRef.current) morphTweenRef.current.kill();
 
     morphTweenRef.current = gsap.to(proxy, {
       p: toProg,
-      duration: 1.05, // 1.05s fluid cinematic duration
+      duration: 0.7,
       ease: 'power2.inOut',
       onUpdate: () => {
         progressRef.current = proxy.p;
-        const currentP = proxy.p;
-
-        // Apply smooth 3D spatial field dynamics to the world stage
         if (world3dRef.current) {
-          if (currentP <= 1.0) {
-            // TRANSITION 1: State 0 -> State 1 (3D Spatial Fold)
-            const subT = currentP;
-            const bell = Math.sin(subT * Math.PI);
-
-            const rotX = bell * (isDown ? 14 : -14);
-            const rotY = bell * (isDown ? -8 : 8);
-            const scale = 1 - bell * 0.06;
-            const tz = -bell * 40;
-
-            world3dRef.current.style.transform = `perspective(1200px) rotateX(${rotX}deg) rotateY(${rotY}deg) scale(${scale}) translateZ(${tz}px)`;
-          } else {
-            // TRANSITION 2: State 1 -> State 2 (Radial Convergence & Spatial Bloom)
-            const subT = currentP - 1.0;
-            const bell = Math.sin(subT * Math.PI);
-
-            const rotX = -bell * (isDown ? 10 : -10);
-            const rotY = bell * (isDown ? 5 : -5);
-            const scale = 1 + bell * 0.06;
-            const tz = bell * 35;
-
-            world3dRef.current.style.transform = `perspective(1200px) rotateX(${rotX}deg) rotateY(${rotY}deg) scale(${scale}) translateZ(${tz}px)`;
-          }
+          world3dRef.current.style.transform = 'none';
         }
       },
       onComplete: () => {
         progressRef.current = toProg;
         if (world3dRef.current) {
-          world3dRef.current.style.transform = 'perspective(1200px) rotateX(0deg) rotateY(0deg) scale(1) translateZ(0px)';
+          world3dRef.current.style.transform = 'none';
         }
         isAnimatingRef.current = false;
       }
     });
 
-    // 3. Switch React state midway (at ~40% mark) so incoming title rolls in smoothly
+    // 3. Switch React state midway for smooth in-place text swap
     setTimeout(() => {
       setCurrentState(targetState);
-    }, 420);
+    }, 320);
   };
 
-  // Synchronized Title Entrance (Roll In & Scale Up)
+  // In-Place Title Entrance (Fade in without vertical movement or scaling)
   useEffect(() => {
     if (!titleContainerRef.current) return;
     const chars = titleContainerRef.current.querySelectorAll('.roll-char-span');
@@ -302,20 +302,20 @@ export default function IntroExperience({ isComplete, setIsComplete, isActive = 
     gsap.fromTo(
       chars,
       {
-        y: 65,
-        scale: 0.65,
+        y: 0,
+        scale: 1,
         opacity: 0,
-        filter: 'blur(8px)'
+        filter: 'blur(0px)'
       },
       {
         y: 0,
         scale: 1,
         opacity: 1,
         filter: 'blur(0px)',
-        duration: 0.65,
-        stagger: 0.02,
-        ease: 'back.out(2.2)',
-        delay: 0.05
+        duration: 0.4,
+        stagger: 0.01,
+        ease: 'power2.out',
+        delay: 0.02
       }
     );
   }, [currentState]);
@@ -553,15 +553,15 @@ export default function IntroExperience({ isComplete, setIsComplete, isActive = 
 
   return (
     <div className="intro-experience-wrapper fixed-intro-stage" id="intro-experience-viewport">
-      {/* 3D World Stage (Transforms cohesively with title roll) */}
-      <div ref={world3dRef} className="intro-3d-world-stage">
+      {/* Stationary World Stage (No frame movement/tilting) */}
+      <div ref={world3dRef} className="intro-3d-world-stage" style={{ transform: 'none' }}>
         {/* Continuous Fluid Multi-Stage Gradient Canvas */}
         <canvas ref={canvasRef} className="intro-experience-canvas" />
 
         {/* Ambient Vignette Overlay */}
         <div className="intro-vignette-overlay" />
 
-        {/* Synchronized Rolling Title Stage */}
+        {/* Stationary Title Stage */}
         <div className="intro-content-container">
           <div className="intro-3d-stage">
             <div
@@ -570,21 +570,26 @@ export default function IntroExperience({ isComplete, setIsComplete, isActive = 
               className="title-3d-card active-roll-card"
               style={{
                 '--title-accent': activeTitle.accent,
-                '--title-glow': activeTitle.glow
+                '--title-glow': activeTitle.glow,
+                transform: 'none',
+                boxShadow: 'none',
+                border: 'none',
+                outline: 'none',
+                background: 'transparent',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                textAlign: 'center'
               }}
             >
-              <h1 className="intro-hero-title roll-letters-heading">
-                {activeTitle.text.split(' ').map((word, wIdx) => (
-                  <span key={wIdx} className="roll-word-span">
-                    {word.split('').map((char, cIdx) => (
-                      <span key={cIdx} className="roll-char-span">
-                        {char}
-                      </span>
-                    ))}
-                    <span className="roll-char-space">&nbsp;</span>
-                  </span>
-                ))}
-              </h1>
+              {/* Official CreativeGini Logo Image */}
+              <div className="screen1-logo-container">
+                <img src="/logo.png" alt="CreativeGini Logo" className="screen1-hero-logo-img" />
+              </div>
+
+              {/* Related Matter in Typewriter Format */}
+              <TypewriterSubtext text={activeTitle.subtext} speed={25} />
             </div>
           </div>
         </div>

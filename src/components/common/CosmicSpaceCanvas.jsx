@@ -95,7 +95,7 @@ export default function CosmicSpaceCanvas() {
     // ==========================================
 
     // Allocate Particle Positions (x, y, z) for 8 distinct scenes
-    const numScenes = 8;
+    const numScenes = 9; // added scene 8 for market shape
     const targets = Array.from({ length: numScenes }, () => new Float32Array(PARTICLE_COUNT * 3));
     const targetColors = Array.from({ length: numScenes }, () => new Float32Array(PARTICLE_COUNT * 3));
 
@@ -141,60 +141,20 @@ export default function CosmicSpaceCanvas() {
       targetColors[0][i3 + 2] = col[2] / 255;
     }
 
-    // --- SCENE 1: 3D STAR-PARTICLE GLOBE ON SECOND PAGE (Gathering Stars -> 3D Globe on RIGHT: +320) ---
-    const phiAngle = Math.PI * (3 - Math.sqrt(5));
+    // --- SCENE 1: AMBIENT STARFIELD BACKGROUND (No duplicate globe; single globe formed by MarketingGlobe) ---
     for (let i = 0; i < PARTICLE_COUNT; i++) {
       const i3 = i * 3;
-      const ratio = i / PARTICLE_COUNT;
+      const angle = rnd() * Math.PI * 2;
+      const spreadR = 400 + rnd() * 850;
+      
+      targets[1][i3] = Math.cos(angle) * spreadR;
+      targets[1][i3 + 1] = (rnd() - 0.5) * 900;
+      targets[1][i3 + 2] = -200 + rnd() * 800;
 
-      if (ratio < 0.90) {
-        // Spherical surface particles with harmonic continental clustering
-        const yNorm = 1 - (i / (PARTICLE_COUNT * 0.90 - 1)) * 2;
-        const radiusAtY = Math.sqrt(Math.max(0, 1 - yNorm * yNorm));
-        const theta = phiAngle * i;
-        const lat = Math.asin(Math.max(-1, Math.min(1, yNorm)));
-        const lon = theta % (Math.PI * 2);
-
-        const harmonic =
-          Math.sin(2 * lon + 0.4) * Math.cos(2.5 * lat) +
-          0.55 * Math.sin(4 * lon - 1.2) * Math.sin(3 * lat + 0.3) +
-          0.35 * Math.cos(3 * lon + 1.8) * Math.cos(5 * lat);
-
-        const isGoldCluster = harmonic > 0.45;
-        const isCyanCluster = harmonic > 0.05;
-        const isWhite = rnd() < 0.08;
-
-        const globR = 205 + (rnd() - 0.5) * 6;
-        const gx = Math.cos(theta) * radiusAtY * globR;
-        const gy = yNorm * globR;
-        const gz = Math.sin(theta) * radiusAtY * globR;
-
-        targets[1][i3] = 320 + gx;
-        targets[1][i3 + 1] = gy;
-        targets[1][i3 + 2] = gz;
-
-        let col;
-        if (isWhite) col = COLOR_PALETTE.softWhite;
-        else if (isGoldCluster) col = rnd() < 0.65 ? COLOR_PALETTE.goldenYellow : COLOR_PALETTE.warmOrange;
-        else if (isCyanCluster) col = rnd() < 0.6 ? COLOR_PALETTE.cyan : COLOR_PALETTE.electricBlue;
-        else col = rnd() < 0.7 ? COLOR_PALETTE.electricBlue : COLOR_PALETTE.cyan;
-
-        targetColors[1][i3] = col[0] / 255;
-        targetColors[1][i3 + 1] = col[1] / 255;
-        targetColors[1][i3 + 2] = col[2] / 255;
-      } else {
-        // Orbiting celestial starlight rings around the globe
-        const orbAngle = rnd() * Math.PI * 2;
-        const orbDist = 240 + rnd() * 60;
-        targets[1][i3] = 320 + Math.cos(orbAngle) * orbDist;
-        targets[1][i3 + 1] = (rnd() - 0.5) * 40 + Math.sin(orbAngle) * 30;
-        targets[1][i3 + 2] = Math.sin(orbAngle) * orbDist;
-
-        const col = rnd() < 0.5 ? COLOR_PALETTE.cyan : COLOR_PALETTE.goldenYellow;
-        targetColors[1][i3] = col[0] / 255;
-        targetColors[1][i3 + 1] = col[1] / 255;
-        targetColors[1][i3 + 2] = col[2] / 255;
-      }
+      const col = rnd() < 0.6 ? COLOR_PALETTE.electricBlue : (rnd() < 0.85 ? COLOR_PALETTE.cyan : COLOR_PALETTE.softWhite);
+      targetColors[1][i3] = col[0] / 255;
+      targetColors[1][i3 + 1] = col[1] / 255;
+      targetColors[1][i3 + 2] = col[2] / 255;
     }
 
     // --- SCENE 2: GLOBE DIVIDES & TRANSFORMS INTO 3D LAMP BESIDE SCENE 1 (LEFT: -340) ---

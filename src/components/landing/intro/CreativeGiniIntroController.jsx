@@ -137,7 +137,7 @@ export default function CreativeGiniIntroController({ children }) {
           const introViewport = document.getElementById('intro-experience-viewport');
           if (introViewport) {
             const titleCard = introViewport.querySelector('.roll-letters-heading');
-            if (titleCard && titleCard.textContent.includes('DO YOU OWN')) {
+            if (titleCard && (titleCard.textContent.includes('CREATIVE') || titleCard.textContent.includes('GINI'))) {
               e.preventDefault();
               e.stopPropagation();
 
