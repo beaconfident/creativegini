@@ -35,6 +35,42 @@ const COLORS = {
 };
 
 export default function MarketingGlobe({ activePlatform, onSelectPlatform }) {
+  const globeRef = useRef(null);
+  // Instagram SVG path (simplified placeholder). Replace with exact path if needed.
+  const instagramPath = "M12 2.2c3.2 0 3.6 0 4.9.1 1.2.1 1.9.3 2.3.5.5.2.9.5 1.3.9.4.4.7.8.9 1.3.2.4.4 1.1.5 2.3.1 1.3.1 1.7.1 4.9.1s3.6 0 4.9-.1c1.2-.1 1.9-.3 2.3-.5.5-.2.9-.5 1.3-.9.4-.4.7-.8.9-1.3.2-.4.4-1.1.5-2.3.1-1.3.1-1.7.1-4.9s0-3.6-.1-4.9c-.1-1.2-.3-1.9-.5-2.3-.2-.5-.5-.9-.9-1.3-.4-.4-.8-.7-1.3-.9-.4-.2-1.1-.4-2.3-.5-1.3-.1-1.7-.1-4.9-.1z";
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollY = window.scrollY || window.pageYOffset;
+      const docHeight = document.body.scrollHeight - window.innerHeight;
+      const scrollPerc = docHeight ? scrollY / docHeight : 0;
+
+      // Define thresholds: 0.3 start disperse, 0.6 fully form Instagram
+      const start = 0.3;
+      const end = 0.6;
+
+      if (globeRef.current) {
+        if (scrollPerc >= start && scrollPerc < end) {
+          // ensure transition initialized once
+          if (!globeRef.current._instagramInitialized) {
+            globeRef.current.triggerInstagramTransition(instagramPath);
+            globeRef.current._instagramInitialized = true;
+          }
+          const progress = (scrollPerc - start) / (end - start);
+          globeRef.current.setInstagramProgress(progress);
+        } else if (scrollPerc >= end) {
+          globeRef.current.setInstagramProgress(1);
+        } else {
+          globeRef.current.setInstagramProgress(0);
+        }
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+
   const containerRef = useRef(null);
   const canvasRef = useRef(null);
   const nodeElementsRef = useRef([]);

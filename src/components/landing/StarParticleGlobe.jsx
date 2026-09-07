@@ -33,17 +33,26 @@ const StarParticleGlobe = React.forwardRef(({
   children
 }, ref) => {
   const [phase, setPhase] = React.useState('idle'); // 'idle' | 'dispersing' | 'gathering'
-  const targetPointsRef = React.useRef([]);
-  const targetProgressRef = React.useRef(0);
+  // Offset to shift Instagram icon leftwards on screen 3
+  const instagramOffsetRef = React.useRef({ x: -200, y: 0 });
+  const targetPointsRef = useRef([]);
+  const targetProgressRef = useRef(0);
+  const gatherProgressRef = useRef(1.0);
+  const instagramTargetPointsRef = React.useRef([]);
+  const instagramProgressRef = React.useRef(0);
+
   // expose method to parent
   React.useImperativeHandle(ref, () => ({
     triggerTransition: (svgPath) => {
-      // sample SVG path into points
       const points = sampleSvgPath(svgPath, SURFACE_PARTICLES);
       targetPointsRef.current = points;
       setPhase('dispersing');
-      // after dispersing duration, start gathering
       setTimeout(() => setPhase('gathering'), 2000);
+    },
+    triggerInstagramTransition: (svgPath) => {
+      const points = sampleSvgPath(svgPath, SURFACE_PARTICLES);
+      instagramTargetPointsRef.current = points;
+      instagramProgressRef.current = 1; 
     }
   }));
 
@@ -60,8 +69,6 @@ const StarParticleGlobe = React.forwardRef(({
     }
     return pts;
   }
-
-  // existing code continues...
 
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
@@ -93,11 +100,9 @@ const StarParticleGlobe = React.forwardRef(({
       const radiusAtY = Math.sqrt(Math.max(0, 1 - y * y));
       const theta = phi * i;
 
-      // Continental density & color clustering using multi-frequency spherical harmonics
-      const lat = Math.asin(y); // -PI/2 to PI/2
+      const lat = Math.asin(y);
       const lon = theta % (Math.PI * 2);
 
-      // Spherical harmonic noise approximation for Earth-like continent starlight clusters
       const harmonic =
         Math.sin(2 * lon + 0.4) * Math.cos(2.5 * lat) +
         0.55 * Math.sin(4 * lon - 1.2) * Math.sin(3 * lat + 0.3) +
@@ -113,12 +118,10 @@ const StarParticleGlobe = React.forwardRef(({
       let baseAlpha;
 
       if (isHighDenseGold) {
-        // Warm Gold / Orange starlight cluster
         rgb = Math.random() < 0.65 ? COLORS.warmGold : COLORS.warmOrange;
         pSize = Math.random() * 2.2 + 1.2;
         baseAlpha = Math.random() * 0.35 + 0.65;
       } else if (isContinentCluster) {
-        // Cyan / Electric Blue with occasional Gold specks
         if (Math.random() < 0.22) {
           rgb = COLORS.warmGold;
           pSize = Math.random() * 1.8 + 1.0;
@@ -128,7 +131,6 @@ const StarParticleGlobe = React.forwardRef(({
         }
         baseAlpha = Math.random() * 0.35 + 0.55;
       } else {
-        // Oceanic cosmic void (dominant electric blue & cyan, spaced out)
         rgb = Math.random() < 0.7 ? COLORS.electricBlue : COLORS.cyan;
         pSize = Math.random() * 1.4 + 0.6;
         baseAlpha = Math.random() * 0.3 + 0.4;
@@ -156,86 +158,12 @@ const StarParticleGlobe = React.forwardRef(({
           twinkleSpeed: Math.random() * 0.04 + 0.02,
           driftPhase: Math.random() * Math.PI * 2,
           driftSpeed: Math.random() * 0.02 + 0.01,
-          // Interactive displacement physics
-          dispX: 0,
-          dispY: 0,
-          dispZ: 0,
-          vx: 0,
-          vy: 0,
-          vz: 0,
-          // Custom target for gathering phase (populated later)
-          targetX: null,
-          targetY: null,
-          targetZ: null,
+          dispX: 0, dispY: 0, dispZ: 0,
+          vx: 0, vy: 0, vz: 0,
           scatterX: (Math.random() - 0.5) * width * 2,
           scatterY: (Math.random() - 0.5) * height * 2,
           scatterZ: (Math.random() - 0.5) * 500
         });
-    }
-
-    // 2. Generate Orbiting Particles (Tilted cosmic rings)
-    const orbitParticles = [];
-    for (let i = 0; i < ORBIT_PARTICLES; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const distance = baseRadius * (1.12 + Math.random() * 0.38);
-      const orbitSpeed = (Math.random() * 0.008 + 0.004) * (Math.random() < 0.5 ? 1 : -1);
-      const tiltAngle = (Math.random() - 0.5) * 0.8;
-      const rgb = Math.random() < 0.5 ? COLORS.cyan : (Math.random() < 0.7 ? COLORS.warmGold : COLORS.softWhite);
-
-      orbitParticles.push({
-        angle,
-        distance,
-        orbitSpeed,
-        tiltAngle,
-        ySpread: (Math.random() - 0.5) * 35,
-        size: Math.random() * 1.8 + 0.8,
-        rgb,
-        alpha: Math.random() * 0.4 + 0.4,
-        twinklePhase: Math.random() * Math.PI * 2
-      });
-    }
-
-    // 3. Generate Escaping & Returning Dust Particles
-    const escapingParticles = [];
-    for (let i = 0; i < ESCAPING_PARTICLES; i++) {
-      const theta = Math.random() * Math.PI * 2;
-      const phiAngle = Math.acos(Math.random() * 2 - 1);
-      const rgb = Math.random() < 0.6 ? COLORS.cyan : COLORS.warmGold;
-
-      escapingParticles.push({
-        dirX: Math.sin(phiAngle) * Math.cos(theta),
-        dirY: Math.cos(phiAngle),
-        dirZ: Math.sin(phiAngle) * Math.sin(theta),
-        cycleOffset: Math.random() * Math.PI * 2,
-        speed: Math.random() * 0.015 + 0.008,
-        maxDist: baseRadius * (1.3 + Math.random() * 0.45),
-        size: Math.random() * 1.6 + 0.8,
-        rgb,
-        alpha: Math.random() * 0.5 + 0.3
-      });
-    }
-
-    // 4. Generate Background Deep Space Stars
-    const bgStars = [];
-    for (let i = 0; i < BG_STARS; i++) {
-      const sx = (Math.random() - 0.5) * width * 1.4;
-      const sy = (Math.random() - 0.5) * height * 1.4;
-      const sz = Math.random() * 400 + 100;
-      const isBright = Math.random() < 0.12;
-      const rgb = isBright
-        ? (Math.random() < 0.5 ? COLORS.softWhite : COLORS.cyan)
-        : [140, 180, 220];
-
-      bgStars.push({
-        x: sx,
-        y: sy,
-        z: sz,
-        size: isBright ? Math.random() * 1.8 + 1.0 : Math.random() * 1.0 + 0.4,
-        rgb,
-        baseAlpha: isBright ? Math.random() * 0.4 + 0.4 : Math.random() * 0.25 + 0.15,
-        twinkleSpeed: Math.random() * 0.03 + 0.01,
-        twinklePhase: Math.random() * Math.PI * 2
-      });
     }
 
     let time = 0;
@@ -261,39 +189,6 @@ const StarParticleGlobe = React.forwardRef(({
       const sinY = Math.sin(rotY);
 
       ctx.clearRect(0, 0, width, height);
-
-      const globeGlowRad = baseRadius * 1.35;
-      const atmosphereGrad = ctx.createRadialGradient(
-        centerX,
-        centerY,
-        baseRadius * 0.2,
-        centerX,
-        centerY,
-        globeGlowRad
-      );
-      atmosphereGrad.addColorStop(0, 'rgba(0, 174, 239, 0.18)');
-      atmosphereGrad.addColorStop(0.45, 'rgba(0, 217, 255, 0.09)');
-      atmosphereGrad.addColorStop(0.75, 'rgba(255, 176, 0, 0.03)');
-      atmosphereGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-
-      ctx.fillStyle = atmosphereGrad;
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, globeGlowRad, 0, Math.PI * 2);
-      ctx.fill();
-
-      for (let i = 0; i < bgStars.length; i++) {
-        const star = bgStars[i];
-        const twinkle = Math.sin(time * star.twinkleSpeed * 60 + star.twinklePhase) * 0.35 + 0.65;
-        const currentAlpha = star.baseAlpha * twinkle;
-        const screenX = centerX + star.x;
-        const screenY = centerY + star.y;
-        if (screenX >= 0 && screenX <= width && screenY >= 0 && screenY <= height) {
-          ctx.fillStyle = `rgba(${star.rgb[0]}, ${star.rgb[1]}, ${star.rgb[2]}, ${currentAlpha})`;
-          ctx.beginPath();
-          ctx.arc(screenX, screenY, star.size, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
 
       const breathScale = 1 + Math.sin(time * 1.4) * 0.015;
       const currentRadius = baseRadius * breathScale;
@@ -322,6 +217,32 @@ const StarParticleGlobe = React.forwardRef(({
           }
 
           const rotBlend = Math.min(1, gProg * 1.2);
+          const curBaseX = gx * gProg + (p.scatterX) * (1 - gProg);
+          const curBaseY = gy * gProg + (p.scatterY) * (1 - gProg);
+          const curBaseZ = gz * gProg + p.scatterZ * (1 - gProg);
+
+          if (instagramProgressRef.current > 0) {
+             const ip = instagramProgressRef.current;
+             const instaTgt = instagramTargetPointsRef.current[i % instagramTargetPointsRef.current.length];
+             const lerp = ip;
+             const offset = instagramOffsetRef.current;
+             const instaX = ((instaTgt.x + offset.x) - centerX) * lerp;
+             const instaY = ((instaTgt.y + offset.y) - centerY) * lerp;
+             const instaZ = 0;
+             const blendX = curBaseX * (1 - ip) + instaX;
+             const blendY = curBaseY * (1 - ip) + instaY;
+             const blendZ = curBaseZ * (1 - ip) + instaZ;
+             const x1 = blendX * cosY + blendZ * sinY;
+             const z1 = -blendX * sinY + blendZ * cosY;
+             const y2 = blendY * cosX - z1 * sinX;
+             const z2 = blendY * sinX + z1 * cosX;
+             const scale = fov / (fov + z2 + p.dispZ);
+             const projX = centerX + (blendX + p.dispX) * scale;
+             const projY = centerY + (blendY + p.dispY) * scale;
+             projectedSurface.push({ x: projX, y: projY, z: z2 + p.dispZ, size: Math.max(0.5, p.size * Math.min(scale, 1.4) * (0.8 + (z2 + 1) * 0.25)), alpha: p.baseAlpha, rgb: p.rgb, frontFacing: true });
+             continue;
+          }
+
           const curCosY = Math.cos(rotY * rotBlend);
           const curSinY = Math.sin(rotY * rotBlend);
           const curCosX = Math.cos(rotX * rotBlend);
