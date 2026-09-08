@@ -320,6 +320,9 @@ export default function IntroExperience({ isComplete, setIsComplete, isActive = 
     );
   }, [currentState]);
 
+  const [scrollFade, setScrollFade] = useState(1);
+  const [scrollOffset, setScrollOffset] = useState(0);
+
   // Natural Page Scroll & Interactive Title Transition
   useEffect(() => {
     document.body.style.overflow = 'auto';
@@ -327,6 +330,11 @@ export default function IntroExperience({ isComplete, setIsComplete, isActive = 
 
     const handleScroll = () => {
       const scrollY = window.scrollY || window.pageYOffset;
+      // Smoothly dissolve and gently float screen 1 content as user scrolls towards screen 2
+      const fade = Math.max(0, Math.min(1, 1 - scrollY / 360));
+      setScrollFade(fade);
+      setScrollOffset(scrollY * 0.22);
+
       if (scrollY > 120 && stateRef.current === 0 && !isAnimatingRef.current) {
         animateToState(1, 'down');
       } else if (scrollY < 60 && stateRef.current === 1 && !isAnimatingRef.current) {
@@ -382,17 +390,18 @@ export default function IntroExperience({ isComplete, setIsComplete, isActive = 
       const centerY = height * 0.48;
 
       // 1. Transparent Cosmic Atmosphere Radial Gradient (reveals underlying multi-layer starfield)
+      const maxAtmosphereRadius = Math.min(centerX, centerY, height * 0.5) * 1.1;
       const grad = ctx.createRadialGradient(
         centerX,
         centerY,
-        40,
+        30,
         centerX,
         centerY,
-        Math.max(width, height) * 0.85
+        maxAtmosphereRadius
       );
-      grad.addColorStop(0, 'rgba(15, 20, 45, 0.35)');
-      grad.addColorStop(0.4, 'rgba(8, 12, 28, 0.2)');
-      grad.addColorStop(1, 'rgba(4, 6, 15, 0)');
+      grad.addColorStop(0, 'rgba(15, 20, 45, 0.28)');
+      grad.addColorStop(0.5, 'rgba(8, 12, 28, 0.12)');
+      grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
 
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, width, height);
@@ -402,41 +411,47 @@ export default function IntroExperience({ isComplete, setIsComplete, isActive = 
       const orb2RGB = sampleColorChannel(p, (w) => w.orb2);
 
       // Moving Orb 1: Orbits smoothly based on progress & time
-      const orb1X = centerX + Math.cos(p * Math.PI * 0.8 + time * 0.3) * (width * 0.28);
-      const orb1Y = centerY + Math.sin(p * Math.PI * 0.6 + time * 0.25) * (height * 0.22);
-      const orb1Grad = ctx.createRadialGradient(orb1X, orb1Y, 10, orb1X, orb1Y, 360);
-      orb1Grad.addColorStop(0, `rgba(${orb1RGB[0]}, ${orb1RGB[1]}, ${orb1RGB[2]}, 0.15)`);
-      orb1Grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      const orb1X = centerX + Math.cos(p * Math.PI * 0.8 + time * 0.3) * (width * 0.26);
+      const orb1Y = centerY + Math.sin(p * Math.PI * 0.6 + time * 0.25) * (height * 0.20);
+      const orb1Grad = ctx.createRadialGradient(orb1X, orb1Y, 10, orb1X, orb1Y, 320);
+      orb1Grad.addColorStop(0, `rgba(${orb1RGB[0]}, ${orb1RGB[1]}, ${orb1RGB[2]}, 0.14)`);
+      orb1Grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.fillStyle = orb1Grad;
       ctx.beginPath();
-      ctx.arc(orb1X, orb1Y, 360, 0, Math.PI * 2);
+      ctx.arc(orb1X, orb1Y, 320, 0, Math.PI * 2);
       ctx.fill();
 
       // Moving Orb 2: Counter-orbit
-      const orb2X = centerX - Math.cos(p * Math.PI * 0.9 - time * 0.2) * (width * 0.32);
-      const orb2Y = centerY - Math.sin(p * Math.PI * 0.7 - time * 0.3) * (height * 0.25);
-      const orb2Grad = ctx.createRadialGradient(orb2X, orb2Y, 10, orb2X, orb2Y, 400);
-      orb2Grad.addColorStop(0, `rgba(${orb2RGB[0]}, ${orb2RGB[1]}, ${orb2RGB[2]}, 0.12)`);
-      orb2Grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      const orb2X = centerX - Math.cos(p * Math.PI * 0.9 - time * 0.2) * (width * 0.30);
+      const orb2Y = centerY - Math.sin(p * Math.PI * 0.7 - time * 0.3) * (height * 0.22);
+      const orb2Grad = ctx.createRadialGradient(orb2X, orb2Y, 10, orb2X, orb2Y, 340);
+      orb2Grad.addColorStop(0, `rgba(${orb2RGB[0]}, ${orb2RGB[1]}, ${orb2RGB[2]}, 0.11)`);
+      orb2Grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.fillStyle = orb2Grad;
       ctx.beginPath();
-      ctx.arc(orb2X, orb2Y, 400, 0, Math.PI * 2);
+      ctx.arc(orb2X, orb2Y, 340, 0, Math.PI * 2);
       ctx.fill();
 
       // 4. Searching Radar Pulse Waves (smooth bell curve around p = 1.0)
       if (p > 0.08 && p < 1.92) {
         const searchWeight = p <= 1.0 ? p : (2.0 - p); // 0 -> 1 -> 0
         ctx.save();
-        pulseRadius = (pulseRadius + 1.8) % (Math.min(width, height) * 0.6);
+        // Constrain max radar radius so pulse wave dissolves naturally before touching screen borders
+        const maxRadarR = Math.min(centerY - 30, height - centerY - 45, width * 0.42, 340);
+        pulseRadius = (pulseRadius + 1.6) % maxRadarR;
 
         for (let r = 0; r < 3; r++) {
-          const currentR = (pulseRadius + r * 130) % (Math.min(width, height) * 0.6);
-          const alpha = (1 - currentR / (Math.min(width, height) * 0.6)) * 0.28 * searchWeight;
-          ctx.beginPath();
-          ctx.arc(centerX, centerY, currentR, 0, Math.PI * 2);
-          ctx.strokeStyle = `rgba(168, 85, 247, ${alpha})`;
-          ctx.lineWidth = 1.5;
-          ctx.stroke();
+          const currentR = (pulseRadius + r * (maxRadarR / 3)) % maxRadarR;
+          const ratio = currentR / maxRadarR;
+          // Smooth quadratic falloff ensuring complete evaporation before boundary
+          const alpha = Math.pow(1 - ratio, 2) * 0.28 * searchWeight;
+          if (alpha > 0.005) {
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, currentR, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(168, 85, 247, ${alpha})`;
+            ctx.lineWidth = 1.3;
+            ctx.stroke();
+          }
         }
         ctx.restore();
       }
@@ -445,11 +460,12 @@ export default function IntroExperience({ isComplete, setIsComplete, isActive = 
       if (p > 1.0) {
         const resWeight = p - 1.0; // 0 to 1
         ctx.save();
-        const bloomRadius = 420 * resWeight;
+        const maxBloom = Math.min(centerY - 20, height - centerY - 40, 360);
+        const bloomRadius = maxBloom * resWeight;
         const bloomGrad = ctx.createRadialGradient(centerX, centerY, 10, centerX, centerY, bloomRadius);
-        bloomGrad.addColorStop(0, `rgba(52, 211, 153, ${0.28 * resWeight})`);
-        bloomGrad.addColorStop(0.5, `rgba(56, 189, 248, ${0.16 * resWeight})`);
-        bloomGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        bloomGrad.addColorStop(0, `rgba(52, 211, 153, ${0.25 * resWeight})`);
+        bloomGrad.addColorStop(0.5, `rgba(56, 189, 248, ${0.12 * resWeight})`);
+        bloomGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
         ctx.fillStyle = bloomGrad;
         ctx.beginPath();
         ctx.arc(centerX, centerY, bloomRadius, 0, Math.PI * 2);
@@ -491,10 +507,12 @@ export default function IntroExperience({ isComplete, setIsComplete, isActive = 
           curY = posY1 + (posY2 - posY1) * t;
         }
 
+        const edgeFade = Math.max(0, Math.min(1, (height - curY) / 100));
+
         ctx.beginPath();
         ctx.arc(curX, curY, node.size * (1 + 0.15 * (p / 2)), 0, Math.PI * 2);
         ctx.fillStyle = nodeFillStr;
-        ctx.globalAlpha = node.alpha;
+        ctx.globalAlpha = node.alpha * edgeFade;
         ctx.fill();
 
         for (let j = i + 1; j < nodes.length; j++) {
@@ -525,12 +543,15 @@ export default function IntroExperience({ isComplete, setIsComplete, isActive = 
           const dist = Math.sqrt(dx * dx + dy * dy);
           const maxDist = 120 + (p >= 1.0 ? 30 : 0);
 
-          if (dist < maxDist) {
+          const otherEdgeFade = Math.max(0, Math.min(1, (height - otherY) / 100));
+          const lineEdgeFade = Math.min(edgeFade, otherEdgeFade);
+
+          if (dist < maxDist && lineEdgeFade > 0.01) {
             ctx.beginPath();
             ctx.moveTo(curX, curY);
             ctx.lineTo(otherX, otherY);
             ctx.strokeStyle = nodeFillStr;
-            ctx.globalAlpha = (1 - dist / maxDist) * 0.25;
+            ctx.globalAlpha = (1 - dist / maxDist) * 0.25 * lineEdgeFade;
             ctx.lineWidth = 1.1;
             ctx.stroke();
           }
@@ -561,8 +582,16 @@ export default function IntroExperience({ isComplete, setIsComplete, isActive = 
         {/* Ambient Vignette Overlay */}
         <div className="intro-vignette-overlay" />
 
-        {/* Stationary Title Stage */}
-        <div className="intro-content-container">
+        {/* Stationary Title Stage with fluid scroll-driven cosmic fade */}
+        <div
+          className="intro-content-container"
+          style={{
+            opacity: scrollFade,
+            transform: `translateY(${-scrollOffset}px)`,
+            transition: 'opacity 0.1s ease-out, transform 0.1s ease-out',
+            pointerEvents: scrollFade < 0.1 ? 'none' : 'auto'
+          }}
+        >
           <div className="intro-3d-stage">
             <div
               key={activeTitle.id}

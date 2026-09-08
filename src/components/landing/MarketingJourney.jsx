@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import {
-  MARKETING_SERVICES_COSTS,
   MARKETING_STACK_TOOLS
 } from '../../data/marketingCosts';
 import {
@@ -21,13 +20,16 @@ import {
   TrendingUp,
   Target,
   DollarSign,
-  AlertTriangle,
   CheckCircle2,
   Zap,
   Layers,
   Layout,
-  Film
+  Film,
+  Plus
 } from 'lucide-react';
+import MarketVortexAnimation from './animations/MarketVortexAnimation';
+import CreativeNexusAnimation from './animations/CreativeNexusAnimation';
+import MoneyParticlesBackground from './animations/MoneyParticlesBackground';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -35,62 +37,228 @@ export default function MarketingJourney({ onExploreSolution }) {
   const containerRef = useRef(null);
   const trackRef = useRef(null);
   const scene4SectionRef = useRef(null);
-  const scene6to7ContainerRef = useRef(null);
-  const scene6to7TrackRef = useRef(null);
+  const scene7SectionRef = useRef(null);
   const [hoveredPipelineStep, setHoveredPipelineStep] = useState(null);
+  const [activeMarketIndex, setActiveMarketIndex] = useState(null);
+  const [activeOutputIndex, setActiveOutputIndex] = useState(null);
+  const marketVortexDispatchRef = useRef(0);
+  const creativeNexusAssembleRef = useRef(0);
+  const creativeNexusDispatchRef = useRef(0);
+  const scene4AssembleRef = useRef(0);
+  const scene4DispatchRef = useRef(0);
 
-  // 1. Horizontal ScrollTrigger for Scenes 1, 2, 3
+  // 1. Ultra-smooth, cinematic section-to-section transition system for Scenes 1, 2, 3
   useEffect(() => {
     const container = containerRef.current;
     const track = trackRef.current;
     if (!container || !track) return;
 
-    let ctx = gsap.context(() => {
-      const getScrollAmount = () => -(track.scrollWidth - window.innerWidth);
+    let mm = gsap.matchMedia();
 
-      gsap.to(track, {
-        x: getScrollAmount,
-        ease: 'none',
+    // DESKTOP: Horizontal pinned track with 300vw, parallax, particle dispatch/assemble
+    mm.add("(min-width: 1025px)", () => {
+      const scene1 = track.querySelector('.scene-01-market .scene-content-wrapper');
+      const scene2 = track.querySelector('.scene-02-outputs .scene-content-wrapper');
+      const scene3 = track.querySelector('.scene-03-strategy .scene-content-wrapper');
+      const getScrollDistance = () => track.scrollWidth - window.innerWidth;
+      const totalScrollTravel = Math.round(window.innerHeight * 3.0);
+
+      // Spatial parallax without box shrinking
+      if (scene1) gsap.set(scene1, { opacity: 1, x: 0 });
+      if (scene2) gsap.set(scene2, { opacity: 0, x: 50 });
+      if (scene3) gsap.set(scene3, { opacity: 0, x: 50 });
+
+      const tl = gsap.timeline({
         scrollTrigger: {
           trigger: container,
           start: 'top top',
-          end: () => `+=${track.scrollWidth - window.innerWidth}`,
+          end: () => `+=${totalScrollTravel}`,
           pin: true,
           anticipatePin: 1,
-          scrub: 1.2,
+          scrub: 0.8,
+          fastScrollEnd: true,
           invalidateOnRefresh: true
         }
       });
-    }, containerRef);
 
-    return () => ctx.revert();
+      // Total timeline duration: 4.0
+      // ==========================================
+      // PHASE 1: Scene 01 Resting Focus (t: 0 -> 0.25)
+      // ==========================================
+      tl.to({}, { duration: 0.25 });
+
+      // ==========================================
+      // PHASE 2: Ultra-Smooth Transition Scene 01 -> Scene 02 (t: 0.25 -> 1.75)
+      // ==========================================
+      const dispatchProxy = { prog: 0 };
+      tl.to(dispatchProxy, {
+        prog: 1,
+        duration: 1.5,
+        ease: 'sine.inOut',
+        onUpdate: () => {
+          marketVortexDispatchRef.current = dispatchProxy.prog;
+        }
+      }, 0.25);
+
+      const nexusAssembleProxy = { prog: 0 };
+      tl.to(nexusAssembleProxy, {
+        prog: 1,
+        duration: 1.5,
+        ease: 'sine.inOut',
+        onUpdate: () => {
+          creativeNexusAssembleRef.current = nexusAssembleProxy.prog;
+        }
+      }, 0.25);
+
+      tl.to(track, {
+        x: () => -window.innerWidth,
+        ease: 'sine.inOut',
+        duration: 1.5
+      }, 0.25);
+
+      if (scene1) {
+        tl.to(scene1, {
+          opacity: 0,
+          x: -50,
+          ease: 'power2.inOut',
+          duration: 1.3
+        }, 0.35);
+      }
+
+      if (scene2) {
+        tl.to(scene2, {
+          opacity: 1,
+          x: 0,
+          ease: 'power2.out',
+          duration: 1.3
+        }, 0.45);
+      }
+
+      // ==========================================
+      // PHASE 3: Scene 02 Center Resting Focus (t: 1.75 -> 2.25)
+      // ==========================================
+      tl.to({}, { duration: 0.5 });
+
+      // ==========================================
+      // PHASE 4: Ultra-Smooth Transition Scene 02 -> Scene 03 (t: 2.25 -> 3.75)
+      // ==========================================
+      const nexusDispatchProxy = { prog: 0 };
+      tl.to(nexusDispatchProxy, {
+        prog: 1,
+        duration: 1.5,
+        ease: 'sine.inOut',
+        onUpdate: () => {
+          creativeNexusDispatchRef.current = nexusDispatchProxy.prog;
+        }
+      }, 2.25);
+
+      tl.to(track, {
+        x: () => -getScrollDistance(),
+        ease: 'sine.inOut',
+        duration: 1.5
+      }, 2.25);
+
+      if (scene2) {
+        tl.to(scene2, {
+          opacity: 0,
+          x: -50,
+          ease: 'power2.inOut',
+          duration: 1.3
+        }, 2.35);
+      }
+
+      if (scene3) {
+        tl.to(scene3, {
+          opacity: 1,
+          x: 0,
+          ease: 'power2.out',
+          duration: 1.3
+        }, 2.45);
+      }
+
+      // ==========================================
+      // PHASE 5: Scene 03 Final Resting Focus (t: 3.75 -> 4.0)
+      // ==========================================
+      tl.to({}, { duration: 0.25 });
+    });
+
+    // MOBILE / TABLET: Natural, unconstrained vertical flow
+    mm.add("(max-width: 1024px)", () => {
+      const scenes = track.querySelectorAll('.scene-content-wrapper');
+      gsap.set(scenes, { opacity: 1, x: 0, clearProps: 'transform,opacity' });
+      gsap.set(track, { x: 0, clearProps: 'transform' });
+    });
+
+    return () => mm.revert();
   }, []);
 
-
-  // 3. New Pinned Horizontal Transition: Scene 06 ("MONEY IN. PRODUCT OUT.") -> Scene 07 ("ONE PLACE. YOUR COMPLETE MARKETING TEAM.")
+  // 2. Scene 04 Natural Fluid Scroll Engine (Unpinned - Zero Gap to Scene 07)
   useEffect(() => {
-    const container = scene6to7ContainerRef.current;
-    const track = scene6to7TrackRef.current;
-    if (!container || !track) return;
+    const scene4 = scene4SectionRef.current;
+    if (!scene4) return;
 
     let ctx = gsap.context(() => {
-      gsap.to(track, {
-        x: () => -(track.scrollWidth - window.innerWidth),
-        ease: 'none',
-        scrollTrigger: {
-          trigger: container,
-          start: 'top top',
-          end: () => `+=${window.innerWidth * 1.0}`,
-          pin: true,
-          anticipatePin: 1,
-          scrub: 1.2,
-          invalidateOnRefresh: true
+      const underlayer = scene4.querySelector('.scene4-underlayer');
+      if (underlayer) {
+        gsap.set(underlayer, { opacity: 1, y: 0 });
+      }
+
+      // Smooth assemble as Scene 04 approaches & enters viewport
+      ScrollTrigger.create({
+        trigger: scene4,
+        start: 'top 95%',
+        end: 'top 10%',
+        scrub: 0.5,
+        onUpdate: (self) => {
+          scene4AssembleRef.current = self.progress;
         }
       });
-    }, scene6to7ContainerRef);
+
+      // Smooth dispatch as Scene 04 exits upwards towards Scene 07
+      ScrollTrigger.create({
+        trigger: scene4,
+        start: 'top top',
+        end: 'bottom 20%',
+        scrub: 0.5,
+        onUpdate: (self) => {
+          scene4DispatchRef.current = self.progress;
+        }
+      });
+    }, scene4);
 
     return () => ctx.revert();
   }, []);
+
+  // 3. Cinematic Reveal for Scene 07 (Solution Reveal)
+  useEffect(() => {
+    const scene7 = scene7SectionRef.current;
+    if (!scene7) return;
+
+    let ctx = gsap.context(() => {
+      const items = scene7.querySelectorAll('.animate-solution-item');
+      if (items.length) {
+        gsap.fromTo(items,
+          { y: 30, opacity: 0 },
+          {
+            y: 0,
+            opacity: 1,
+            duration: 0.8,
+            stagger: 0.12,
+            ease: 'power2.out',
+            scrollTrigger: {
+              trigger: scene7,
+              start: 'top 85%',
+              toggleActions: 'play none none reverse'
+            }
+          }
+        );
+      }
+    }, scene7);
+
+    return () => ctx.revert();
+  }, []);
+
+
 
   // Strategy Pipeline Steps for Scene 03
   const strategySteps = [
@@ -135,75 +303,104 @@ export default function MarketingJourney({ onExploreSolution }) {
           <div ref={trackRef} className="journey-horizontal-track horizontal-track-scenes-1-3">
             {/* SCENE 01: WHERE IS YOUR MARKET? */}
             <div className="journey-scene scene-01-market">
-              <div className="scene-content-wrapper relative-z">
-                <div className="scene-text-header">
-                  <span className="scene-number-badge">SCENE 01 • MARKET DISCOVERY</span>
-                  <h2 className="scene-main-heading">
-                    Where Is Your Market?
-                  </h2>
-                  <p className="scene-lead-paragraph">
-                    Your customers don’t live in one isolated place. CreativeGini actively discovers and maps the online discussions, high-intent queries, and specialized communities where your market congregates.
-                  </p>
+              <div className="scene-content-wrapper relative-z scene-01-split-layout">
+                {/* Left Side: Animated Cosmic Market Intelligence Vortex */}
+                <div className="scene-01-element-section" id="scene-01-left-element-container">
+                  <MarketVortexAnimation
+                    activeIndex={activeMarketIndex}
+                    onHoverNode={setActiveMarketIndex}
+                    dispatchProgressRef={marketVortexDispatchRef}
+                  />
                 </div>
 
-                <div className="foreground-discovery-grid">
-                  {foregroundMarketNodes.map((node, i) => (
-                    <div
-                      key={i}
-                      className="market-foreground-card"
-                      style={{ '--card-color': node.color }}
-                    >
-                      <div className="market-card-top-row">
-                        <div className="market-card-icon" style={{ color: node.color, background: `${node.color}15` }}>
-                          {node.icon}
+                {/* Right Side: Header and 6 Market Discovery Cards */}
+                <div className="scene-01-content-section">
+                  <div className="scene-text-header scene-01-header-right">
+                    <span className="scene-number-badge">SCENE 01 • MARKET DISCOVERY</span>
+                    <h2 className="scene-main-heading">
+                      Where Is Your Market?
+                    </h2>
+                    <p className="scene-lead-paragraph">
+                      Your customers don’t live in one isolated place. CreativeGini actively discovers and maps online discussions, high-intent queries, and specialized communities where your market congregates.
+                    </p>
+                  </div>
+
+                  <div className="foreground-discovery-grid scene-01-right-cards-grid">
+                    {foregroundMarketNodes.map((node, i) => (
+                      <div
+                        key={i}
+                        className={`market-foreground-card ${activeMarketIndex === i ? 'is-active-card' : ''}`}
+                        style={{ '--card-color': node.color }}
+                        onMouseEnter={() => setActiveMarketIndex(i)}
+                        onMouseLeave={() => setActiveMarketIndex(null)}
+                      >
+                        <div className="market-card-top-row">
+                          <div className="market-card-icon" style={{ color: node.color, background: `${node.color}15` }}>
+                            {node.icon}
+                          </div>
+                          <span className="market-card-metric">{node.count}</span>
                         </div>
-                        <span className="market-card-metric">{node.count}</span>
+                        <h3 className="market-card-title">{node.title}</h3>
+                        <p className="market-card-cat">{node.category}</p>
+                        <div className="market-card-radar-dot">
+                          <span className="pulse-ping" style={{ background: node.color }} />
+                          <span className="static-dot" style={{ background: node.color }} />
+                          <span>Live audience signal</span>
+                        </div>
                       </div>
-                      <h3 className="market-card-title">{node.title}</h3>
-                      <p className="market-card-cat">{node.category}</p>
-                      <div className="market-card-radar-dot">
-                        <span className="pulse-ping" style={{ background: node.color }} />
-                        <span className="static-dot" style={{ background: node.color }} />
-                        <span>Live audience signal</span>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* SCENE 02: WHAT ARE YOU TRYING TO PROMOTE? */}
             <div className="journey-scene scene-02-outputs">
-              <div className="scene-content-wrapper relative-z">
-                <div className="scene-text-header">
-                  <span className="scene-number-badge">SCENE 02 • CREATIVE PRODUCTION</span>
-                  <h2 className="scene-main-heading">
-                    What Are You Trying to Promote?
-                  </h2>
-                  <p className="scene-lead-paragraph">
-                    Capturing modern audience attention demands an array of polished, high-performing creative outputs—each engineered for specific formats and channels.
-                  </p>
+              <div className="scene-content-wrapper relative-z scene-02-split-layout">
+                {/* Left Side: Header and Creative Output Cards */}
+                <div className="scene-02-content-section">
+                  <div className="scene-text-header scene-02-header-left">
+                    <span className="scene-number-badge">SCENE 02 • CREATIVE PRODUCTION</span>
+                    <h2 className="scene-main-heading">
+                      What Are You Trying to Promote?
+                    </h2>
+                    <p className="scene-lead-paragraph">
+                      Capturing modern audience attention demands an array of polished, high-performing creative outputs—each engineered for specific formats and channels.
+                    </p>
+                  </div>
+
+                  <div className="outputs-floating-cloud-grid scene-02-left-cards-grid">
+                    {marketingOutputs.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className={`output-creative-card ${item.animClass} ${activeOutputIndex === idx ? 'is-active-output' : ''}`}
+                        style={{ '--card-accent': item.color }}
+                        onMouseEnter={() => setActiveOutputIndex(idx)}
+                        onMouseLeave={() => setActiveOutputIndex(null)}
+                      >
+                        <div className="output-card-top">
+                          <span className="output-format-tag" style={{ color: item.color, borderColor: `${item.color}40`, background: `${item.color}12` }}>
+                            {item.format}
+                          </span>
+                          <span className="output-badge">{item.tag}</span>
+                        </div>
+                        <h4 className="output-title">{item.title}</h4>
+                        <div className="output-visual-mock-bar">
+                          <span className="mock-bar-fill" style={{ background: item.color }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
-                <div className="outputs-floating-cloud-grid">
-                  {marketingOutputs.map((item, idx) => (
-                    <div
-                      key={idx}
-                      className={`output-creative-card ${item.animClass}`}
-                      style={{ '--card-accent': item.color }}
-                    >
-                      <div className="output-card-top">
-                        <span className="output-format-tag" style={{ color: item.color, borderColor: `${item.color}40`, background: `${item.color}12` }}>
-                          {item.format}
-                        </span>
-                        <span className="output-badge">{item.tag}</span>
-                      </div>
-                      <h4 className="output-title">{item.title}</h4>
-                      <div className="output-visual-mock-bar">
-                        <span className="mock-bar-fill" style={{ background: item.color }} />
-                      </div>
-                    </div>
-                  ))}
+                {/* Right Side: Dedicated Container for Particle Elements */}
+                <div className="scene-02-element-section" id="scene-02-right-element-container">
+                  <CreativeNexusAnimation
+                    activeIndex={activeOutputIndex}
+                    onHoverNode={setActiveOutputIndex}
+                    assembleProgressRef={creativeNexusAssembleRef}
+                    dispatchProgressRef={creativeNexusDispatchRef}
+                  />
                 </div>
               </div>
             </div>
@@ -274,6 +471,12 @@ export default function MarketingJourney({ onExploreSolution }) {
         id="scene-04-costs-section"
       >
         <div className="scene4-stage-container">
+          {/* Animated 3D Floating Money Notes & Luminous Dollar Particles Canvas */}
+          <MoneyParticlesBackground
+            assembleProgressRef={scene4AssembleRef}
+            dispatchProgressRef={scene4DispatchRef}
+          />
+
           {/* Solid 100% Opaque Stage Atmosphere */}
           <div className="scene4-stage-bg" />
 
@@ -284,7 +487,7 @@ export default function MarketingJourney({ onExploreSolution }) {
             <div className="scene-text-header">
               <span className="scene-number-badge cost-badge">SCENE 04 • FINANCIAL BURN RATE</span>
               <h2 className="scene-main-heading">
-                What Does It Cost to Do All This?
+                MONEY IN.<br />PRODUCT OUT.
               </h2>
               <p className="scene-lead-paragraph">
                 When you try to manage marketing with separate tools, freelancers, and specialized agencies, costs snowball uncontrollably.
@@ -295,7 +498,9 @@ export default function MarketingJourney({ onExploreSolution }) {
               <div className="costs-stack-grid">
                 {MARKETING_STACK_TOOLS.map((tool) => (
                   <div key={tool.id} className="tool-expense-pill">
-                    <DollarSign size={14} className="tool-dollar" />
+                    <div className="tool-icon-wrapper">
+                      <DollarSign size={14} className="tool-dollar" />
+                    </div>
                     <span className="tool-name">{tool.name}</span>
                     <strong className="tool-cost">{tool.costRange}</strong>
                   </div>
@@ -324,86 +529,46 @@ export default function MarketingJourney({ onExploreSolution }) {
       </section>
 
       {/* ==================================================
-          3. NEW HORIZONTAL TRANSITION: SCENE 06 -> SCENE 07
-          ("MONEY IN. PRODUCT OUT." -> "ONE PLACE. YOUR COMPLETE MARKETING TEAM.")
+          3. SCENE 07: "ONE PLACE. YOUR COMPLETE MARKETING TEAM."
           ================================================== */}
       <section
-        ref={scene6to7ContainerRef}
-        className="scene6-to-7-horizontal-section"
-        id="scene-06-money-product"
+        ref={scene7SectionRef}
+        className="scene-07-solution-reveal-section"
+        id="scene-07-solution-reveal"
       >
-        <div className="scene6-to-7-sticky-viewport">
-          <div ref={scene6to7TrackRef} className="scene6-to-7-horizontal-track">
-            {/* SCENE 06: "MONEY IN. PRODUCT OUT." */}
-            <div className="journey-scene scene-06-money-product-scene">
-              <div className="scene-content-wrapper">
-                <div className="money-product-central-container">
-                  <div className="central-vault-header">
-                    <div className="vault-tag">
-                      <AlertTriangle size={15} /> THE COST OF DISCONNECTION
-                    </div>
-                    <h2 className="money-in-product-out-title">
-                      MONEY IN.<br />PRODUCT OUT.
-                    </h2>
-                    <p className="vault-subtext">
-                      Paying separate vendors for separate tasks creates high overhead and zero synergy.
-                    </p>
-                  </div>
+        <div className="journey-scene scene-07-solution-reveal-scene">
+          <div className="scene-content-wrapper solution-center-card">
+            <h2 className="solution-main-heading animate-solution-item">
+              One Place.<br />
+              <span className="gradient-highlight-text">Your Complete Marketing Team.</span>
+            </h2>
 
-                  <div className="services-crossout-grid">
-                    {MARKETING_SERVICES_COSTS.map((item) => (
-                      <div
-                        key={item.id}
-                        className="cost-service-item-card"
-                      >
-                        <div className="service-header-line">
-                          <span className="service-name">{item.name}</span>
-                          <span className="service-estimate">{item.estimatedCost}</span>
-                        </div>
-                        <div className="service-label-tiny">{item.label}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+            <p className="solution-lead-desc animate-solution-item">
+              Stop juggling 10 different tools and fragmented agencies. CreativeGini unifies strategic audience discovery, AI content generation, ad execution, and performance analytics into a single intelligent platform.
+            </p>
+
+            <div className="solution-benefits-row animate-solution-item">
+              <div className="benefit-pill">
+                <CheckCircle2 size={16} className="check-icon" />
+                <span>Integrated Strategy & Execution</span>
+              </div>
+              <div className="benefit-pill">
+                <CheckCircle2 size={16} className="check-icon" />
+                <span>Specialized POD Squad</span>
+              </div>
+              <div className="benefit-pill">
+                <CheckCircle2 size={16} className="check-icon" />
+                <span>Multi-Channel Automation</span>
               </div>
             </div>
 
-            {/* SCENE 07: "ONE PLACE. YOUR COMPLETE MARKETING TEAM." */}
-            <div className="journey-scene scene-07-solution-reveal-scene" id="scene-07-solution-reveal">
-              <div className="scene-content-wrapper solution-center-card">
-                <h2 className="solution-main-heading animate-solution-item">
-                  One Place.<br />
-                  <span className="gradient-highlight-text">Your Complete Marketing Team.</span>
-                </h2>
-
-                <p className="solution-lead-desc animate-solution-item">
-                  Stop juggling 10 different tools and fragmented agencies. CreativeGini unifies strategic audience discovery, AI content generation, ad execution, and performance analytics into a single intelligent platform.
-                </p>
-
-                <div className="solution-benefits-row animate-solution-item">
-                  <div className="benefit-pill">
-                    <CheckCircle2 size={16} className="check-icon" />
-                    <span>Integrated Strategy & Execution</span>
-                  </div>
-                  <div className="benefit-pill">
-                    <CheckCircle2 size={16} className="check-icon" />
-                    <span>Specialized POD Squad</span>
-                  </div>
-                  <div className="benefit-pill">
-                    <CheckCircle2 size={16} className="check-icon" />
-                    <span>Multi-Channel Automation</span>
-                  </div>
-                </div>
-
-                <div className="solution-cta-row animate-solution-item">
-                  <button
-                    className="btn-primary solution-launch-btn"
-                    onClick={onExploreSolution}
-                  >
-                    <Sparkles size={16} /> Explore CreativeGini Platform <ArrowRight size={16} />
-                  </button>
-                </div>
-              </div>
+            <div className="solution-cta-row animate-solution-item">
+              <button
+                className="btn-primary solution-launch-btn"
+                onClick={onExploreSolution}
+              >
+                <Sparkles size={16} /> Explore CreativeGini Platform <ArrowRight size={16} />
+              </button>
             </div>
           </div>
         </div>

@@ -1,4 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import Lenis from 'lenis';
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import Navbar from './components/landing/Navbar';
 import IntroExperience from './components/landing/IntroExperience';
 import MarketingChannelsSection from './components/landing/MarketingChannelsSection';
@@ -10,18 +13,52 @@ import Toast from './components/common/Toast';
 import Dashboard from './components/dashboard/Dashboard';
 import CosmicSpaceCanvas from './components/common/CosmicSpaceCanvas';
 
+gsap.registerPlugin(ScrollTrigger);
+
 export default function App() {
   const [currentView, setCurrentView] = useState('landing'); 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [user, setUser] = useState(null); 
   const [toastMessage, setToastMessage] = useState('');
-  const [cursorPos, setCursorPos] = useState({ x: -500, y: -500 });
+  const spotlightRef = useRef(null);
+
+  // Global Silky-Smooth Inertial Scroll Engine (Lenis + GSAP ScrollTrigger)
+  useEffect(() => {
+    if (currentView !== 'landing') return;
+
+    const lenis = new Lenis({
+      duration: 1.2,
+      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      orientation: 'vertical',
+      gestureOrientation: 'vertical',
+      smoothWheel: true,
+      wheelMultiplier: 0.95,
+      touchMultiplier: 1.5,
+      infinite: false
+    });
+
+    lenis.on('scroll', ScrollTrigger.update);
+
+    const updateTicker = (time) => {
+      lenis.raf(time * 1000);
+    };
+
+    gsap.ticker.add(updateTicker);
+    gsap.ticker.lagSmoothing(0);
+
+    return () => {
+      gsap.ticker.remove(updateTicker);
+      lenis.destroy();
+    };
+  }, [currentView]);
 
   useEffect(() => {
     const handleMouseMove = (e) => {
-      setCursorPos({ x: e.clientX, y: e.clientY });
+      if (spotlightRef.current) {
+        spotlightRef.current.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0)`;
+      }
     };
-    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mousemove', handleMouseMove, { passive: true });
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
@@ -65,8 +102,9 @@ export default function App() {
       <CosmicSpaceCanvas />
       
       <div
+        ref={spotlightRef}
         className="cursor-cosmic-spotlight"
-        style={{ left: `${cursorPos.x}px`, top: `${cursorPos.y}px` }}
+        style={{ left: 0, top: 0, transform: 'translate3d(-500px, -500px, 0)' }}
       />
 
       {currentView === 'dashboard' ? (
@@ -108,8 +146,11 @@ export default function App() {
                 onExploreSolution={handleDirectSignInClick}
               />
 
-              {/* 3. SCREEN 1 FINALE & SCALING FOOTER */}
-              <CreativeGiniEndExperience
+              {/* 3. SCREEN 1 FINALE */}
+              <CreativeGiniEndExperience />
+
+              {/* 4. MAIN FOOTER */}
+              <Footer
                 onOpenAuth={handleDirectSignInClick}
               />
             </div>

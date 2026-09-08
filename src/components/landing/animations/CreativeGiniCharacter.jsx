@@ -20,7 +20,7 @@ export default function CreativeGiniCharacter({ progress = 0 }) {
       className="creativegini-character-container"
       style={{
         position: 'absolute',
-        top: '36%',
+        top: '50%',
         left: '50%',
         transform: `translate(-50%, -50%) translateY(${translateY}px) scale(${scale}) rotate(${rotateDeg}deg)`,
         opacity: opacity,

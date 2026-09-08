@@ -61,7 +61,7 @@ export default function CreativeGiniParticles({ introProgress = 0, width, height
       // p is normalized between 0.0 and 1.0
       const p = Math.max(0, Math.min(1, progressRef.current));
       const centerX = w * 0.5;
-      const centerY = h * 0.38;
+      const centerY = h * 0.5;
 
       particles.forEach((pt, idx) => {
         pt.orbitAngle += pt.orbitSpeed;

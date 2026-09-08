@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import gsap from 'gsap';
-import MarketingGlobe from './MarketingGlobe';
+import MarketingGlobe from './animations/MarketingGlobe';
 import { MARKETING_PLATFORMS } from '../../data/marketingPlatforms';
 import {
   Sparkles,
@@ -18,7 +18,39 @@ import {
 export default function MarketingChannelsSection({ onExploreChannel }) {
   const [selectedPlatform, setSelectedPlatform] = useState(MARKETING_PLATFORMS[0]); // Default to Instagram or null
   const [isDefaultView, setIsDefaultView] = useState(false);
+  const sectionRef = useRef(null);
+  const headerRef = useRef(null);
   const panelRef = useRef(null);
+
+  // Synchronized scroll assemble for Screen 2 header and info panel
+  useEffect(() => {
+    const section = sectionRef.current;
+    const header = headerRef.current;
+    const panel = panelRef.current;
+    if (!section || !header || !panel) return;
+
+    let ctx = gsap.context(() => {
+      gsap.fromTo(
+        [header, panel],
+        { y: 35, opacity: 0 },
+        {
+          y: 0,
+          opacity: 1,
+          duration: 0.8,
+          stagger: 0.12,
+          ease: 'power2.out',
+          scrollTrigger: {
+            trigger: section,
+            start: 'top 65%',
+            end: 'top 10%',
+            scrub: 0.5
+          }
+        }
+      );
+    }, section);
+
+    return () => ctx.revert();
+  }, []);
 
   // Smooth dynamic GSAP spring & fade transition when changing selected platform
   useEffect(() => {
@@ -43,10 +75,10 @@ export default function MarketingChannelsSection({ onExploreChannel }) {
   };
 
   return (
-    <section className="marketing-channels-section" id="marketing-channels">
+    <section ref={sectionRef} className="marketing-channels-section" id="marketing-channels">
       <div className="section-container">
         {/* Section Header */}
-        <div className="section-header-centered">
+        <div ref={headerRef} className="section-header-centered">
           <div className="section-tag">
             <Compass size={14} /> Market Channels Discovery
           </div>
@@ -62,6 +94,25 @@ export default function MarketingChannelsSection({ onExploreChannel }) {
         <div className="channels-interactive-grid">
           {/* LEFT: Information Panel */}
           <div className="channel-info-column">
+            {/* Mobile Channel Switcher Chips Bar */}
+            <div className="mobile-platforms-scroll-row">
+              {MARKETING_PLATFORMS.map((p) => {
+                const isSelected = selectedPlatform?.id === p.id;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    className={`mobile-platform-chip-btn ${isSelected ? 'active' : ''}`}
+                    style={{ '--chip-accent': p.accentColor }}
+                    onClick={() => handleSelect(p)}
+                  >
+                    <img src={p.logo} alt={p.name} className="chip-mini-logo" />
+                    <span>{p.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+
             <div ref={panelRef} className="channel-glass-panel">
               {isDefaultView || !selectedPlatform ? (
                 /* Default State */
@@ -112,9 +163,9 @@ export default function MarketingChannelsSection({ onExploreChannel }) {
                     <div
                       className="platform-avatar-halo"
                       style={{
-                        background: '#FFFFFF',
-                        border: `1.5px solid ${selectedPlatform.accentColor}30`,
-                        boxShadow: `0 8px 24px ${selectedPlatform.accentColor}25`
+                        background: 'rgba(10, 24, 38, 0.95)',
+                        border: `1.5px solid ${selectedPlatform.accentColor}60`,
+                        boxShadow: `0 8px 24px rgba(0, 0, 0, 0.7), 0 0 20px ${selectedPlatform.accentColor}35`
                       }}
                     >
                       <img

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { MARKETING_PLATFORMS } from '../../data/marketingPlatforms';
+import { MARKETING_PLATFORMS } from '../../../data/marketingPlatforms';
 import {
   Instagram,
   Facebook,
@@ -21,10 +21,9 @@ import {
 
 gsap.registerPlugin(ScrollTrigger);
 
-const SURFACE_PARTICLES = 2800;
+const SURFACE_PARTICLES = 900;
 const ORBIT_PARTICLES = 140;
 const ESCAPING_PARTICLES = 80;
-const BG_STARS = 320;
 
 const COLORS = {
   electricBlue: [0, 174, 239],
@@ -35,42 +34,6 @@ const COLORS = {
 };
 
 export default function MarketingGlobe({ activePlatform, onSelectPlatform }) {
-  const globeRef = useRef(null);
-  // Instagram SVG path (simplified placeholder). Replace with exact path if needed.
-  const instagramPath = "M12 2.2c3.2 0 3.6 0 4.9.1 1.2.1 1.9.3 2.3.5.5.2.9.5 1.3.9.4.4.7.8.9 1.3.2.4.4 1.1.5 2.3.1 1.3.1 1.7.1 4.9.1s3.6 0 4.9-.1c1.2-.1 1.9-.3 2.3-.5.5-.2.9-.5 1.3-.9.4-.4.7-.8.9-1.3.2-.4.4-1.1.5-2.3.1-1.3.1-1.7.1-4.9s0-3.6-.1-4.9c-.1-1.2-.3-1.9-.5-2.3-.2-.5-.5-.9-.9-1.3-.4-.4-.8-.7-1.3-.9-.4-.2-1.1-.4-2.3-.5-1.3-.1-1.7-.1-4.9-.1z";
-
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrollY = window.scrollY || window.pageYOffset;
-      const docHeight = document.body.scrollHeight - window.innerHeight;
-      const scrollPerc = docHeight ? scrollY / docHeight : 0;
-
-      // Define thresholds: 0.3 start disperse, 0.6 fully form Instagram
-      const start = 0.3;
-      const end = 0.6;
-
-      if (globeRef.current) {
-        if (scrollPerc >= start && scrollPerc < end) {
-          // ensure transition initialized once
-          if (!globeRef.current._instagramInitialized) {
-            globeRef.current.triggerInstagramTransition(instagramPath);
-            globeRef.current._instagramInitialized = true;
-          }
-          const progress = (scrollPerc - start) / (end - start);
-          globeRef.current.setInstagramProgress(progress);
-        } else if (scrollPerc >= end) {
-          globeRef.current.setInstagramProgress(1);
-        } else {
-          globeRef.current.setInstagramProgress(0);
-        }
-      }
-    };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    handleScroll();
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-
   const containerRef = useRef(null);
   const canvasRef = useRef(null);
   const nodeElementsRef = useRef([]);
@@ -87,6 +50,9 @@ export default function MarketingGlobe({ activePlatform, onSelectPlatform }) {
   // Scroll gathering progression state (0 = scattered stars in deep space, 1 = fully formed 3D globe)
   const gatherProgressRef = useRef(0);
   const targetGatherProgressRef = useRef(0);
+  // Scroll dispatch progression state (0 = assembled globe, 1 = dispatched/dispersed into cosmic space)
+  const dispatchProgressRef = useRef(0);
+  const targetDispatchProgressRef = useRef(0);
 
   // Compute platform node spherical coordinates
   useEffect(() => {
@@ -116,35 +82,44 @@ export default function MarketingGlobe({ activePlatform, onSelectPlatform }) {
     hoveredNodeIdRef.current = activePlatform?.id || null;
   }, [activePlatform]);
 
-  // Scroll listener to migrate Screen 1 stars and assemble globe on Screen 2
+  // Scroll listener: assemble on entry, dispatch on exit
   useEffect(() => {
     const handleScroll = () => {
       const el = containerRef.current;
       if (!el) return;
 
-      const section = el.closest('.marketing-channels-section') || el;
-      const rect = section.getBoundingClientRect();
+      const rect = el.getBoundingClientRect();
       const windowH = window.innerHeight;
 
-      // Distance from top of document (Screen 1)
-      const scrollY = window.scrollY || window.pageYOffset;
-      const sectionTop = section.offsetTop;
+      // 1. Entry assembly: begins when globe approaches viewport (rect.top <= windowH * 0.9)
+      // Fully assembled when rect.top <= windowH * 0.45
+      const startEntry = windowH * 0.90;
+      const endEntry = windowH * 0.45;
 
-      // Start star migration when user begins scrolling down from Screen 1 (scrollY > 15px)
-      // Fully assembled Globe when Screen 2 comes into full focus
-      const startGather = 15;
-      const endGather = sectionTop - windowH * 0.25;
-
-      let progress = 0;
-      if (scrollY <= startGather) {
-        progress = 0;
-      } else if (scrollY >= endGather) {
-        progress = 1;
+      let gatherProg = 0;
+      if (rect.top >= startEntry) {
+        gatherProg = 0;
+      } else if (rect.top <= endEntry) {
+        gatherProg = 1;
       } else {
-        progress = (scrollY - startGather) / (endGather - startGather);
+        gatherProg = (startEntry - rect.top) / (startEntry - endEntry);
       }
+      targetGatherProgressRef.current = Math.max(0, Math.min(1, gatherProg));
 
-      targetGatherProgressRef.current = progress;
+      // 2. Exit dispatch towards Screen 3:
+      // Dispatches ONLY when the globe itself scrolls off top of view (rect.bottom <= windowH * 0.25)
+      const dispatchStart = windowH * 0.25;
+      const dispatchEnd = -windowH * 0.35;
+
+      let dispatchProg = 0;
+      if (rect.bottom >= dispatchStart) {
+        dispatchProg = 0;
+      } else if (rect.bottom <= dispatchEnd) {
+        dispatchProg = 1;
+      } else {
+        dispatchProg = (dispatchStart - rect.bottom) / (dispatchStart - dispatchEnd);
+      }
+      targetDispatchProgressRef.current = Math.max(0, Math.min(1, dispatchProg));
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
@@ -162,8 +137,8 @@ export default function MarketingGlobe({ activePlatform, onSelectPlatform }) {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const width = (canvas.width = 640);
-    const height = (canvas.height = 640);
+    const width = (canvas.width = 960);
+    const height = (canvas.height = 960);
     const centerX = width / 2;
     const centerY = height / 2;
     const fov = 480;
@@ -221,27 +196,32 @@ export default function MarketingGlobe({ activePlatform, onSelectPlatform }) {
         baseAlpha = Math.random() * 0.2 + 0.8;
       }
 
-      const rOffset = (Math.random() - 0.5) * 6;
+      const rOffset = (Math.random() - 0.5) * 5;
       const x = Math.cos(theta) * radiusAtY;
       const z = Math.sin(theta) * radiusAtY;
 
-      // Dispersed origin up in Screen 1 viewport space
+      // Clean harmonic dispersion parameters for elegant, non-chaotic assembly
+      const auraExpand = 1.30 + Math.sin(theta * 3 + y * 4) * 0.08;
+      const auraTwist = (y >= 0 ? 1 : -1) * 0.45;
+
+      // Wide cosmic space dispersion origins across background
       const scatterAngle = Math.random() * Math.PI * 2;
-      const scatterDist = 380 + Math.random() * 950;
-      const scatterX = (Math.random() - 0.5) * 1400;
-      const scatterY = -550 - Math.random() * 750; // Positioned high up in Screen 1!
-      const scatterZ = -300 + Math.random() * 1100;
-      const swirlPhase = Math.random() * Math.PI * 2;
+      const scatterDistance = 340 + Math.random() * 380; // 340px to 720px spread
+      const scatterX = Math.cos(scatterAngle) * scatterDistance;
+      const scatterY = (Math.random() - 0.5) * 650;
+      const scatterZ = -150 + Math.random() * 550;
 
       surfaceParticles.push({
         baseX: x,
         baseY: y,
         baseZ: z,
+        theta,
+        radiusAtY,
+        auraExpand,
+        auraTwist,
         scatterX,
         scatterY,
         scatterZ,
-        scatterDist,
-        swirlPhase,
         rOffset,
         rgb,
         size: pSize,
@@ -301,42 +281,30 @@ export default function MarketingGlobe({ activePlatform, onSelectPlatform }) {
       });
     }
 
-    // 4. Background Deep Space Stars
-    const bgStars = [];
-    for (let i = 0; i < BG_STARS; i++) {
-      const sx = (Math.random() - 0.5) * width * 1.4;
-      const sy = (Math.random() - 0.5) * height * 1.4;
-      const sz = Math.random() * 400 + 100;
-      const isBright = Math.random() < 0.12;
-      const rgb = isBright
-        ? (Math.random() < 0.5 ? COLORS.softWhite : COLORS.cyan)
-        : [140, 180, 220];
-
-      bgStars.push({
-        x: sx,
-        y: sy,
-        z: sz,
-        size: isBright ? Math.random() * 1.6 + 0.9 : Math.random() * 0.9 + 0.4,
-        rgb,
-        baseAlpha: isBright ? Math.random() * 0.4 + 0.4 : Math.random() * 0.25 + 0.15,
-        twinkleSpeed: Math.random() * 0.03 + 0.01,
-        twinklePhase: Math.random() * Math.PI * 2
-      });
-    }
-
     let time = 0;
 
     const render = () => {
       time += 0.016;
 
-      // Smoothly interpolate scroll gathering progress (0.0 = deep space stars, 1.0 = assembled globe)
-      gatherProgressRef.current += (targetGatherProgressRef.current - gatherProgressRef.current) * 0.08;
+      // Smoothly interpolate scroll gathering progress directly with user scrolling
+      gatherProgressRef.current += (targetGatherProgressRef.current - gatherProgressRef.current) * 0.25;
+      if (Math.abs(targetGatherProgressRef.current - gatherProgressRef.current) < 0.002) {
+        gatherProgressRef.current = targetGatherProgressRef.current;
+      }
       const gProg = Math.max(0, Math.min(1, gatherProgressRef.current));
 
-      // Rotation inertia
+      // Smoothly interpolate scroll dispatch progress (responsive dispersion towards Screen 3)
+      dispatchProgressRef.current += (targetDispatchProgressRef.current - dispatchProgressRef.current) * 0.22;
+      if (Math.abs(targetDispatchProgressRef.current - dispatchProgressRef.current) < 0.002) {
+        dispatchProgressRef.current = targetDispatchProgressRef.current;
+      }
+      const dProg = Math.max(0, Math.min(1, dispatchProgressRef.current));
+
+      // Rotation inertia (gentle and serene during assembly, full speed when locked in)
       const rotSpeed = isHoveredRef.current ? 0.0015 : 0.0035;
+      const activeRotSpeed = rotSpeed * (0.35 + gProg * 0.65);
       if (!isDraggingRef.current) {
-        rotationRef.current.y += rotSpeed;
+        rotationRef.current.y += activeRotSpeed;
         rotationRef.current.x += (0.18 + Math.sin(time * 0.4) * 0.05 - rotationRef.current.x) * 0.02;
       }
 
@@ -350,10 +318,66 @@ export default function MarketingGlobe({ activePlatform, onSelectPlatform }) {
 
       ctx.clearRect(0, 0, width, height);
 
-      // 1. Subtle Cosmic Atmosphere Glow (ONLY fades in as globe finishes assembling from stars)
-      if (gProg > 0.65) {
-        const atmosphereAlpha = (gProg - 0.65) / 0.35;
-        const globeGlowRad = baseRadius * 1.35 * Math.min(1, gProg * 1.15);
+      // On Screen 1 (before user scrolls to Screen 2), globe is completely NOT there
+      if (gProg <= 0.01) {
+        if (containerRef.current) {
+          containerRef.current.style.opacity = '0';
+          containerRef.current.style.pointerEvents = 'none';
+        }
+        ctx.clearRect(0, 0, width, height);
+
+        // Ensure all platform node DOM elements and hint are hidden
+        const nodesData = nodes3DRef.current;
+        for (let i = 0; i < nodesData.length; i++) {
+          const domEl = nodeElementsRef.current[i];
+          if (domEl) {
+            domEl.style.opacity = '0';
+            domEl.style.pointerEvents = 'none';
+            domEl.style.transform = 'scale(0)';
+          }
+        }
+        if (hintRef.current) {
+          hintRef.current.style.opacity = '0';
+        }
+
+        animFrameRef.current = requestAnimationFrame(render);
+        return;
+      }
+
+      // When fully dispatched towards Screen 3, globe is completely gone
+      if (dProg >= 0.98) {
+        if (containerRef.current) {
+          containerRef.current.style.opacity = '0';
+          containerRef.current.style.pointerEvents = 'none';
+        }
+        ctx.clearRect(0, 0, width, height);
+
+        const nodesData = nodes3DRef.current;
+        for (let i = 0; i < nodesData.length; i++) {
+          const domEl = nodeElementsRef.current[i];
+          if (domEl) {
+            domEl.style.opacity = '0';
+            domEl.style.pointerEvents = 'none';
+            domEl.style.transform = 'scale(0)';
+          }
+        }
+        if (hintRef.current) {
+          hintRef.current.style.opacity = '0';
+        }
+
+        animFrameRef.current = requestAnimationFrame(render);
+        return;
+      }
+
+      if (containerRef.current) {
+        containerRef.current.style.opacity = '1';
+        containerRef.current.style.pointerEvents = (gProg > 0.7 && dProg < 0.2) ? 'auto' : 'none';
+      }
+
+      // 1. Subtle Cosmic Atmosphere Glow (fades in gracefully as globe condenses, dissolves on dispatch)
+      if (gProg > 0.20 && dProg < 0.75) {
+        const atmosphereAlpha = ((gProg - 0.20) / 0.80) * Math.max(0, 1.0 - dProg * 1.35);
+        const globeGlowRad = baseRadius * 1.30 * Math.min(1, 0.85 + gProg * 0.15) * (1.0 + dProg * 0.5);
         const atmosphereGrad = ctx.createRadialGradient(
           centerX,
           centerY,
@@ -362,9 +386,9 @@ export default function MarketingGlobe({ activePlatform, onSelectPlatform }) {
           centerY,
           globeGlowRad
         );
-        atmosphereGrad.addColorStop(0, `rgba(0, 174, 239, ${(0.18 * atmosphereAlpha).toFixed(3)})`);
-        atmosphereGrad.addColorStop(0.45, `rgba(0, 217, 255, ${(0.09 * atmosphereAlpha).toFixed(3)})`);
-        atmosphereGrad.addColorStop(0.75, `rgba(255, 176, 0, ${(0.03 * atmosphereAlpha).toFixed(3)})`);
+        atmosphereGrad.addColorStop(0, `rgba(0, 174, 239, ${(0.16 * atmosphereAlpha).toFixed(3)})`);
+        atmosphereGrad.addColorStop(0.5, `rgba(0, 217, 255, ${(0.07 * atmosphereAlpha).toFixed(3)})`);
+        atmosphereGrad.addColorStop(0.8, `rgba(255, 176, 0, ${(0.02 * atmosphereAlpha).toFixed(3)})`);
         atmosphereGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
 
         ctx.fillStyle = atmosphereGrad;
@@ -373,52 +397,55 @@ export default function MarketingGlobe({ activePlatform, onSelectPlatform }) {
         ctx.fill();
       }
 
-      // 2. Background Stars (only fade in as Screen 1 stars migrate down to Screen 2)
-      if (gProg > 0.3) {
-        const bgFade = (gProg - 0.3) / 0.7;
-        for (let i = 0; i < bgStars.length; i++) {
-          const star = bgStars[i];
-          const twinkle = Math.sin(time * star.twinkleSpeed * 60 + star.twinklePhase) * 0.35 + 0.65;
-          const currentAlpha = star.baseAlpha * twinkle * bgFade;
-
-          const screenX = centerX + star.x;
-          const screenY = centerY + star.y;
-
-          if (screenX >= 0 && screenX <= width && screenY >= 0 && screenY <= height) {
-            ctx.fillStyle = `rgba(${star.rgb[0]}, ${star.rgb[1]}, ${star.rgb[2]}, ${currentAlpha})`;
-            ctx.beginPath();
-            ctx.arc(screenX, screenY, star.size, 0, Math.PI * 2);
-            ctx.fill();
-          }
-        }
-      }
-
       // Breathing Sphere Scale
       const breathScale = 1 + Math.sin(time * 1.4) * 0.015;
       const currentRadius = baseRadius * breathScale;
 
-      // 3. Process & Gather Surface Particles into 3D Globe
+      // 2. Process & Gather Surface Particles into 3D Globe
       const projectedSurface = [];
       const mouse = mouseRef.current;
 
       for (let i = 0; i < surfaceParticles.length; i++) {
         const p = surfaceParticles[i];
 
-        const drift = Math.sin(time * p.driftSpeed * 60 + p.driftPhase) * 2.2;
-        const r = currentRadius + p.rOffset + drift;
+        const drift = Math.sin(time * p.driftSpeed * 60 + p.driftPhase) * 1.8;
+        
+        // Target spherical coordinates on the formed globe
+        const curR = currentRadius + p.rOffset + drift;
+        const sphereBaseX = Math.cos(p.theta) * p.radiusAtY * curR;
+        const sphereBaseY = p.baseY * curR;
+        const sphereBaseZ = Math.sin(p.theta) * p.radiusAtY * curR;
 
-        // Target spherical coordinate
-        const gx = p.baseX * r;
-        const gy = p.baseY * r;
-        const gz = p.baseZ * r;
+        // Gravitational spiral easing from scatter space (gProg = 0) to formed sphere (gProg = 1)
+        const easeProg = gProg * gProg * (3 - 2 * gProg);
+        const vortexAngle = (1.0 - easeProg) * Math.PI * 1.8 * (p.baseY >= 0 ? 1 : -1);
+        const cosV = Math.cos(vortexAngle);
+        const sinV = Math.sin(vortexAngle);
 
-        // Spiral swirling gathering math from deep space starfield into sphere
-        const swirlAngle = (1 - gProg) * Math.PI * 3.5 + p.swirlPhase;
-        const swirlR = (1 - gProg) * p.scatterDist;
+        const swirledScatterX = p.scatterX * cosV - p.scatterZ * sinV * 0.35;
+        const swirledScatterZ = p.scatterX * sinV * 0.35 + p.scatterZ * cosV;
+        const swirledScatterY = p.scatterY;
 
-        const curBaseX = gx * gProg + (p.scatterX + Math.cos(swirlAngle) * swirlR) * (1 - gProg);
-        const curBaseY = gy * gProg + (p.scatterY + Math.sin(swirlAngle) * swirlR * 0.65) * (1 - gProg);
-        const curBaseZ = gz * gProg + p.scatterZ * (1 - gProg);
+        let curBaseX = swirledScatterX * (1.0 - easeProg) + sphereBaseX * easeProg;
+        let curBaseY = swirledScatterY * (1.0 - easeProg) + sphereBaseY * easeProg;
+        let curBaseZ = swirledScatterZ * (1.0 - easeProg) + sphereBaseZ * easeProg;
+
+        // Exit dispatch when scrolling from Screen 2 towards Screen 3:
+        // Particles burst and disperse outward along radial and spiral vectors
+        if (dProg > 0.001) {
+          const dEase = dProg * dProg * (3 - 2 * dProg);
+          const dispatchExpand = 1.0 + dEase * 2.8;
+          const dispatchSwirl = dEase * Math.PI * 1.6 * (p.baseY >= 0 ? 1 : -1);
+          const cosD = Math.cos(dispatchSwirl);
+          const sinD = Math.sin(dispatchSwirl);
+
+          const dx = curBaseX * dispatchExpand + p.scatterX * dEase * 0.7;
+          const dz = curBaseZ * dispatchExpand + p.scatterZ * dEase * 0.7;
+
+          curBaseX = dx * cosD - dz * sinD * 0.4;
+          curBaseZ = dx * sinD * 0.4 + dz * cosD;
+          curBaseY = curBaseY * dispatchExpand + p.scatterY * dEase * 0.7;
+        }
 
         // Apply 3D Rotation (only rotates once forming)
         const rotBlend = Math.min(1, gProg * 1.2);
@@ -472,9 +499,11 @@ export default function MarketingGlobe({ activePlatform, onSelectPlatform }) {
         const frontFacing = depthNorm > -0.15;
 
         const twinkle = Math.sin(time * p.twinkleSpeed * 60 + p.twinklePhase) * 0.25 + 0.75;
-        let alpha = p.baseAlpha * twinkle;
+        // Fade in smoothly from 0 as scroll begins away from Screen 1
+        const assembleFade = Math.min(1.0, Math.max(0, (gProg - 0.01) * 3.0));
+        let alpha = p.baseAlpha * twinkle * assembleFade;
 
-        if (gProg > 0.5) {
+        if (gProg > 0.4) {
           if (depthNorm < 0) {
             alpha *= Math.max(0.12, 0.45 + depthNorm * 0.4);
           } else {
@@ -482,7 +511,11 @@ export default function MarketingGlobe({ activePlatform, onSelectPlatform }) {
           }
         }
 
-        alpha = Math.min(1.0, Math.max(0.06, alpha * (0.4 + gProg * 0.6)));
+        if (dProg > 0.001) {
+          alpha *= Math.max(0, 1.0 - dProg * 0.95);
+        }
+
+        alpha = Math.min(1.0, Math.max(0.0, alpha));
         const renderedSize = Math.max(0.5, p.size * Math.min(scale, 1.4) * (0.8 + (depthNorm + 1) * 0.25));
 
         projectedSurface.push({
@@ -516,9 +549,9 @@ export default function MarketingGlobe({ activePlatform, onSelectPlatform }) {
         }
       }
 
-      // 4. Orbiting Particles (assemble into orbit)
-      if (gProg > 0.4) {
-        const orbitAlphaMult = (gProg - 0.4) / 0.6;
+      // 4. Orbiting Particles (assemble into orbit, dissolve on dispatch)
+      if (gProg > 0.4 && dProg < 0.85) {
+        const orbitAlphaMult = ((gProg - 0.4) / 0.6) * Math.max(0, 1.0 - dProg * 1.2);
         for (let i = 0; i < orbitParticles.length; i++) {
           const op = orbitParticles[i];
           op.angle += op.orbitSpeed;
@@ -546,9 +579,9 @@ export default function MarketingGlobe({ activePlatform, onSelectPlatform }) {
         }
       }
 
-      // 5. Escaping Dust Particles (emerge once globe is formed)
-      if (gProg > 0.7) {
-        const escapeAlphaMult = (gProg - 0.7) / 0.3;
+      // 5. Escaping Dust Particles (emerge once globe is formed, dissolve on dispatch)
+      if (gProg > 0.7 && dProg < 0.85) {
+        const escapeAlphaMult = ((gProg - 0.7) / 0.3) * Math.max(0, 1.0 - dProg * 1.2);
         for (let i = 0; i < escapingParticles.length; i++) {
           const ep = escapingParticles[i];
           const cycle = (Math.sin(time * ep.speed * 60 + ep.cycleOffset) + 1) / 2;
@@ -576,14 +609,17 @@ export default function MarketingGlobe({ activePlatform, onSelectPlatform }) {
         }
       }
 
-      // 6. Platform Node Constellations (ONLY appear AFTER stars have assembled into the 3D globe: gProg >= 0.85)
-      const iconProgress = Math.max(0, Math.min(1, (gProg - 0.85) / 0.15));
+      // 6. Platform Node Constellations
+      // Clean, elegant bloom: badges bloom outward from their precise spherical positions
+      // once the globe has reached formation focus (gProg >= 0.60), smoothly retract on dispatch
       const projectedList = [];
       const nodesData = nodes3DRef.current;
+      const totalNodes = nodesData.length;
 
-      for (let i = 0; i < nodesData.length; i++) {
+      for (let i = 0; i < totalNodes; i++) {
         const node = nodesData[i];
 
+        // Apply 3D rotation
         const x1 = node.baseX * cosY + node.baseZ * sinY;
         const z1 = -node.baseX * sinY + node.baseZ * cosY;
 
@@ -598,27 +634,36 @@ export default function MarketingGlobe({ activePlatform, onSelectPlatform }) {
         const scale = (fov / (fov + finalZ));
         const x2d = centerX + x2 * scale;
         const y2d = centerY + y2 * scale;
+        const domX = 320 + x2 * scale;
+        const domY = 320 + y2 * scale;
 
         const depthNorm = (finalZ + baseRadius) / (baseRadius * 2);
-        const alpha = isHovered ? 1.0 : Math.max(0.28, Math.min(1.0, 1.0 - (1 - depthNorm) * 0.65));
+        const baseAlpha = isHovered ? 1.0 : Math.max(0.28, Math.min(1.0, 1.0 - (1 - depthNorm) * 0.65));
 
-        projectedList.push({ x2d, y2d, z: finalZ, alpha, isHovered });
+        // Staggered radial bloom: blooms cleanly from gProg = 0.35 to 0.78, retracts on dispatch
+        const nodeTriggerStart = 0.35 + (i / totalNodes) * 0.28; // 0.35 to 0.63
+        const nodeProg = Math.max(0, Math.min(1, (gProg - nodeTriggerStart) / 0.16));
+        const badgeDispatchFade = Math.max(0, 1.0 - dProg * 1.35);
+
+        // Refined spring bloom easing
+        const easePop = Math.sin(nodeProg * Math.PI * 0.5) * (nodeProg < 1 ? 1 + Math.sin(nodeProg * Math.PI) * 0.16 : 1);
+
+        projectedList.push({ x2d, y2d, z: finalZ, alpha: baseAlpha, isHovered, nodeProg });
 
         const domEl = nodeElementsRef.current[i];
         if (domEl) {
-          if (iconProgress <= 0.001) {
+          if (nodeProg <= 0.005 || badgeDispatchFade <= 0.005) {
             domEl.style.opacity = '0';
             domEl.style.pointerEvents = 'none';
-            domEl.style.transform = `translate3d(${x2d}px, ${y2d}px, 0) translate(-50%, -50%) scale(0)`;
+            domEl.style.transform = `translate3d(${domX.toFixed(1)}px, ${domY.toFixed(1)}px, 0) translate(-50%, -50%) scale(0)`;
           } else {
-            const easePop = Math.sin(iconProgress * Math.PI * 0.5);
-            const finalScale = scale * (isHovered ? 1.25 : 1) * easePop;
-            const finalAlpha = alpha * iconProgress;
+            const finalScale = scale * (isHovered ? 1.25 : 1) * easePop * badgeDispatchFade;
+            const finalAlpha = baseAlpha * nodeProg * badgeDispatchFade;
 
-            domEl.style.opacity = `${finalAlpha}`;
-            domEl.style.pointerEvents = iconProgress > 0.75 ? 'auto' : 'none';
+            domEl.style.opacity = `${finalAlpha.toFixed(3)}`;
+            domEl.style.pointerEvents = (nodeProg > 0.80 && dProg < 0.25) ? 'auto' : 'none';
             domEl.style.zIndex = isHovered ? '999' : `${Math.floor(finalZ + 300)}`;
-            domEl.style.transform = `translate3d(${x2d}px, ${y2d}px, 0) translate(-50%, -50%) scale(${finalScale})`;
+            domEl.style.transform = `translate3d(${domX.toFixed(1)}px, ${domY.toFixed(1)}px, 0) translate(-50%, -50%) scale(${finalScale.toFixed(3)})`;
 
             if (isHovered) {
               domEl.classList.add('node-selected');
@@ -631,22 +676,26 @@ export default function MarketingGlobe({ activePlatform, onSelectPlatform }) {
 
       // Update interaction hint visibility
       if (hintRef.current) {
-        hintRef.current.style.opacity = `${iconProgress > 0.7 ? (iconProgress - 0.7) / 0.3 : 0}`;
+        const hintAlpha = (gProg > 0.75 ? (gProg - 0.75) / 0.20 : 0) * Math.max(0, 1.0 - dProg * 1.5);
+        hintRef.current.style.opacity = `${hintAlpha.toFixed(3)}`;
       }
 
-      // 7. Subtle constellation dust connections
-      if (iconProgress > 0.5) {
+      // 7. Subtle constellation dust connections (cleanly activate only when badges are bloomed and not dispatching)
+      if (gProg > 0.65 && dProg < 0.25) {
+        const lineProgress = Math.max(0, Math.min(1, (gProg - 0.65) / 0.20)) * Math.max(0, 1.0 - dProg * 4.0);
         ctx.save();
         for (let i = 0; i < projectedList.length; i++) {
           for (let j = i + 1; j < projectedList.length; j++) {
             const n1 = projectedList[i];
             const n2 = projectedList[j];
+            if (n1.nodeProg < 0.70 || n2.nodeProg < 0.70) continue;
+
             const dx = n1.x2d - n2.x2d;
             const dy = n1.y2d - n2.y2d;
             const dist = Math.sqrt(dx * dx + dy * dy);
 
-            if (dist < 140 && n1.z > -80 && n2.z > -80) {
-              const lineAlpha = (1 - dist / 140) * 0.15 * ((n1.alpha + n2.alpha) / 2) * iconProgress;
+            if (dist < 135 && n1.z > -60 && n2.z > -60) {
+              const lineAlpha = (1 - dist / 135) * 0.16 * ((n1.alpha + n2.alpha) / 2) * lineProgress;
               ctx.beginPath();
               ctx.moveTo(n1.x2d, n1.y2d);
               ctx.lineTo(n2.x2d, n2.y2d);
@@ -679,8 +728,8 @@ export default function MarketingGlobe({ activePlatform, onSelectPlatform }) {
   const handleMouseMove = (e) => {
     const rect = containerRef.current?.getBoundingClientRect();
     if (rect) {
-      mouseRef.current.x = e.clientX - rect.left;
-      mouseRef.current.y = e.clientY - rect.top;
+      mouseRef.current.x = e.clientX - rect.left + 160;
+      mouseRef.current.y = e.clientY - rect.top + 160;
       mouseRef.current.active = true;
     }
 
@@ -714,7 +763,7 @@ export default function MarketingGlobe({ activePlatform, onSelectPlatform }) {
       onMouseLeave={handleMouseLeave}
     >
       {/* 3D Star-Particle Globe Canvas */}
-      <canvas ref={canvasRef} className="globe-canvas" width={640} height={640} />
+      <canvas ref={canvasRef} className="globe-canvas" width={960} height={960} />
 
       {/* Interactive Platform HTML Nodes (revealed after stars form the globe) */}
       <div className="globe-nodes-layer">
@@ -731,7 +780,7 @@ export default function MarketingGlobe({ activePlatform, onSelectPlatform }) {
                 opacity: 0,
                 transform: 'scale(0)',
                 pointerEvents: 'none',
-                transition: 'opacity 0.3s ease, transform 0.3s ease'
+                transition: 'opacity 0.2s ease'
               }}
               onMouseEnter={() => {
                 isHoveredRef.current = true;

@@ -1,24 +1,31 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { LogOut, LayoutDashboard, Sparkles } from 'lucide-react';
 
 export default function Navbar({ onOpenGoogleModal, user, onLogout, onGoToDashboard }) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [activeSection, setActiveSection] = useState('');
   const [mobileOpen, setMobileOpen] = useState(false);
+  const headerRef = useRef(null);
 
   useEffect(() => {
     const handleScroll = () => {
       const scrollY = window.scrollY;
       setIsScrolled(scrollY > 20);
 
-      const sections = ['services', 'how-it-works', 'ai-agents', 'about'];
+      const sections = [
+        'marketing-channels',
+        'marketing-journey',
+        'scene-04-costs-section',
+        'scene-07-solution-reveal'
+      ];
+
       let current = '';
+      const navHeight = 90;
       for (const sectionId of sections) {
         const el = document.getElementById(sectionId);
         if (el) {
-          const top = el.offsetTop - 180;
-          const height = el.offsetHeight;
-          if (scrollY >= top && scrollY < top + height) {
+          const rect = el.getBoundingClientRect();
+          if (rect.top <= navHeight + 140 && rect.bottom >= navHeight) {
             current = sectionId;
           }
         }
@@ -27,59 +34,93 @@ export default function Navbar({ onOpenGoogleModal, user, onLogout, onGoToDashbo
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Dismiss mobile drawer on click outside or Escape key
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (headerRef.current && !headerRef.current.contains(e.target)) {
+        setMobileOpen(false);
+      }
+    };
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') setMobileOpen(false);
+    };
+
+    if (mobileOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside, { passive: true });
+      document.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [mobileOpen]);
+
   const scrollToSection = (e, sectionId) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     setMobileOpen(false);
+
+    // Ensure document scroll is active
+    document.body.style.overflow = 'auto';
+    document.documentElement.style.overflow = 'auto';
+
     const el = document.getElementById(sectionId);
     if (el) {
-      el.scrollIntoView({ behavior: 'smooth' });
+      const navHeight = 76;
+      const targetY = el.getBoundingClientRect().top + window.pageYOffset - navHeight;
+      window.scrollTo({
+        top: Math.max(0, targetY),
+        behavior: 'smooth'
+      });
     }
   };
 
   const scrollToTop = (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     setMobileOpen(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
-    <header className={`navbar-container ${isScrolled ? 'scrolled' : ''}`}>
+    <header ref={headerRef} className={`navbar-container ${isScrolled ? 'scrolled' : ''}`}>
       <nav className="glass-navbar">
-        <a href="#" className="nav-brand" onClick={scrollToTop} title="CreativeGini - From Zero to Hero">
+        <a href="#" className="nav-brand" onClick={scrollToTop} title="CreativeGini - Autonomous AI Marketing Engine">
           <img src="/logo.png" alt="CreativeGini Logo" className="nav-logo-img" />
         </a>
 
         <div className="nav-menu">
           <a
-            href="#services"
-            className={`nav-item ${activeSection === 'services' ? 'active' : ''}`}
-            onClick={(e) => scrollToSection(e, 'services')}
+            href="#marketing-channels"
+            className={`nav-item ${activeSection === 'marketing-channels' ? 'active' : ''}`}
+            onClick={(e) => scrollToSection(e, 'marketing-channels')}
           >
-            Services
+            12+ Channels
           </a>
           <a
-            href="#how-it-works"
-            className={`nav-item ${activeSection === 'how-it-works' ? 'active' : ''}`}
-            onClick={(e) => scrollToSection(e, 'how-it-works')}
+            href="#marketing-journey"
+            className={`nav-item ${activeSection === 'marketing-journey' ? 'active' : ''}`}
+            onClick={(e) => scrollToSection(e, 'marketing-journey')}
           >
-            How It Works
+            Campaign Journey
           </a>
           <a
-            href="#ai-agents"
-            className={`nav-item ${activeSection === 'ai-agents' ? 'active' : ''}`}
-            onClick={(e) => scrollToSection(e, 'ai-agents')}
+            href="#scene-04-costs-section"
+            className={`nav-item ${activeSection === 'scene-04-costs-section' ? 'active' : ''}`}
+            onClick={(e) => scrollToSection(e, 'scene-04-costs-section')}
           >
-            AI Agents
+            Cost Analysis
           </a>
           <a
-            href="#about"
-            className={`nav-item ${activeSection === 'about' ? 'active' : ''}`}
-            onClick={(e) => scrollToSection(e, 'about')}
+            href="#scene-07-solution-reveal"
+            className={`nav-item ${activeSection === 'scene-07-solution-reveal' ? 'active' : ''}`}
+            onClick={(e) => scrollToSection(e, 'scene-07-solution-reveal')}
           >
-            About
+            AI Solution
           </a>
         </div>
 
@@ -90,14 +131,15 @@ export default function Navbar({ onOpenGoogleModal, user, onLogout, onGoToDashbo
             </button>
           )}
 
-          <a
-            href="#final-cta"
+          <button
+            type="button"
             className="deploy-cta-btn"
-            onClick={(e) => scrollToSection(e, 'final-cta')}
+            onClick={onOpenGoogleModal}
+            title="Deploy AI Campaign"
           >
             <Sparkles size={14} />
-            <span>Get Started</span>
-          </a>
+            <span className="deploy-btn-text">Deploy Campaign</span>
+          </button>
 
           {user ? (
             <div className="user-profile-pill" onClick={onGoToDashboard} style={{ cursor: 'pointer' }}>
@@ -108,7 +150,7 @@ export default function Navbar({ onOpenGoogleModal, user, onLogout, onGoToDashbo
               </button>
             </div>
           ) : (
-            <button className="google-btn" onClick={onOpenGoogleModal}>
+            <button className="google-btn desktop-google-btn" onClick={onOpenGoogleModal}>
               <svg className="google-icon" width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
                 <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -133,17 +175,33 @@ export default function Navbar({ onOpenGoogleModal, user, onLogout, onGoToDashbo
 
       {mobileOpen && (
         <div className="mobile-drawer">
-          <a href="#services" className="mobile-link" onClick={(e) => scrollToSection(e, 'services')}>
-            Services
+          <a
+            href="#marketing-channels"
+            className="mobile-link"
+            onClick={(e) => scrollToSection(e, 'marketing-channels')}
+          >
+            12+ Channels
           </a>
-          <a href="#how-it-works" className="mobile-link" onClick={(e) => scrollToSection(e, 'how-it-works')}>
-            How It Works
+          <a
+            href="#marketing-journey"
+            className="mobile-link"
+            onClick={(e) => scrollToSection(e, 'marketing-journey')}
+          >
+            Campaign Journey
           </a>
-          <a href="#ai-agents" className="mobile-link" onClick={(e) => scrollToSection(e, 'ai-agents')}>
-            AI Agents
+          <a
+            href="#scene-04-costs-section"
+            className="mobile-link"
+            onClick={(e) => scrollToSection(e, 'scene-04-costs-section')}
+          >
+            Cost Analysis
           </a>
-          <a href="#about" className="mobile-link" onClick={(e) => scrollToSection(e, 'about')}>
-            About
+          <a
+            href="#scene-07-solution-reveal"
+            className="mobile-link"
+            onClick={(e) => scrollToSection(e, 'scene-07-solution-reveal')}
+          >
+            AI Solution
           </a>
           <div className="mobile-divider"></div>
           {user && (
@@ -151,14 +209,14 @@ export default function Navbar({ onOpenGoogleModal, user, onLogout, onGoToDashbo
               <LayoutDashboard size={14} /> <span>Open Dashboard</span>
             </button>
           )}
-          <a
-            href="#final-cta"
+          <button
+            type="button"
             className="deploy-cta-btn mobile-deploy-btn"
-            onClick={(e) => scrollToSection(e, 'final-cta')}
+            onClick={() => { setMobileOpen(false); onOpenGoogleModal(); }}
           >
             <Sparkles size={14} />
-            <span>Get Started</span>
-          </a>
+            <span>Deploy Campaign</span>
+          </button>
           {!user && (
             <button className="google-btn mobile-google-btn" onClick={() => { setMobileOpen(false); onOpenGoogleModal(); }}>
               <svg className="google-icon" width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">

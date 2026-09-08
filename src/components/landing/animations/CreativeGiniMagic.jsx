@@ -15,7 +15,7 @@ export default function CreativeGiniMagic({ progress = 0 }) {
       className="creativegini-magic-portal-wrapper"
       style={{
         position: 'absolute',
-        top: '38%',
+        top: '50%',
         left: '50%',
         transform: `translate(-50%, -50%) scale(${scale})`,
         opacity: opacity,

@@ -18,7 +18,9 @@ import React, { useEffect, useRef } from 'react';
  *   Gravitational Bubble & Magnifying Forcefield with attraction/repulsion springs.
  */
 
-const PARTICLE_COUNT = 2400;
+const PARTICLE_COUNT = 1200;
+const AMBIENT_COUNT = 500;
+const FEATURE_COUNT = PARTICLE_COUNT - AMBIENT_COUNT; // 700
 
 // Color Palette Constants
 const COLOR_PALETTE = {
@@ -44,9 +46,14 @@ export default function CosmicSpaceCanvas() {
     let width = (canvas.width = window.innerWidth);
     let height = (canvas.height = window.innerHeight);
 
+    // Responsive Globe Offset (aligns with Screen 2 right column on desktop)
+    let globeCenterOffsetX = width >= 1024 ? Math.min(340, width * 0.22) : 0;
+    let globeCenterOffsetY = -10;
+
     const handleResize = () => {
       width = canvas.width = window.innerWidth;
       height = canvas.height = window.innerHeight;
+      globeCenterOffsetX = width >= 1024 ? Math.min(340, width * 0.22) : 0;
     };
     window.addEventListener('resize', handleResize);
 
@@ -84,8 +91,51 @@ export default function CosmicSpaceCanvas() {
     let targetScrollProgress = 0;
 
     const handleScroll = () => {
+      const scrollY = window.scrollY || window.pageYOffset;
       const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
-      targetScrollProgress = Math.min(1, Math.max(0, window.scrollY / maxScroll));
+
+      // Dedicated tracking for Screen transitions:
+      // Screen 1 -> Screen 2 (Assemble into Globe)
+      // Screen 2 in view (Stable 3D Globe)
+      // Screen 2 -> Screen 3 (Dispatch from Globe into Screen 3 cosmic formation)
+      const s2El = document.getElementById('marketing-channels');
+      const s3El = document.getElementById('marketing-journey');
+
+      if (s2El) {
+        const s2Rect = s2El.getBoundingClientRect();
+        const windowH = window.innerHeight;
+
+        if (s2Rect.top >= windowH * 0.95) {
+          // Pure Screen 1 (Scattered cosmic starfield, no globe)
+          targetScrollProgress = 0;
+        } else if (s2Rect.top > windowH * 0.10) {
+          // Screen 1 -> Screen 2: Direct scroll-driven assembly
+          const s1to2 = (windowH * 0.95 - s2Rect.top) / (windowH * 0.85);
+          targetScrollProgress = Math.max(0, Math.min(1, s1to2)) / (numScenes - 1);
+        } else if (s2Rect.top > -windowH * 0.20) {
+          // Screen 2 in focus: Locked cleanly into Scene 1 (Screen 2 background)
+          targetScrollProgress = 1.0 / (numScenes - 1);
+        } else {
+          // Screen 2 -> Screen 3: Globe particles DISPATCH and reassemble into Screen 3
+          const s3Top = s3El ? s3El.getBoundingClientRect().top : s2Rect.bottom;
+
+          if (s3Top > 0) {
+            // Scrolling between Screen 2 and Screen 3:
+            // Maps stageExact smoothly from 1.0 to 2.0 (Dispatched into Screen 3 cosmic field)
+            const s2to3 = Math.max(0, Math.min(1, (-windowH * 0.20 - s2Rect.top) / (windowH * 0.55)));
+            targetScrollProgress = (1.0 + s2to3) / (numScenes - 1);
+          } else {
+            // Inside Screen 3 (MarketingJourney pinned stages):
+            // Progress from Scene 2 onwards through the rest of the site (2.0 to 8.0)
+            const remScrollY = Math.max(0, scrollY - (windowH * 1.6));
+            const remMax = Math.max(1, maxScroll - (windowH * 1.6));
+            const remProg = Math.min(1, remScrollY / remMax);
+            targetScrollProgress = (2.0 + remProg * (numScenes - 3)) / (numScenes - 1);
+          }
+        }
+      } else {
+        targetScrollProgress = Math.min(1, Math.max(0, scrollY / maxScroll));
+      }
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
     handleScroll();
@@ -94,8 +144,8 @@ export default function CosmicSpaceCanvas() {
     // 3D PARAMETRIC MORPH TARGET GENERATOR
     // ==========================================
 
-    // Allocate Particle Positions (x, y, z) for 8 distinct scenes
-    const numScenes = 9; // added scene 8 for market shape
+    // Allocate Particle Positions (x, y, z) for 9 distinct scenes
+    const numScenes = 9;
     const targets = Array.from({ length: numScenes }, () => new Float32Array(PARTICLE_COUNT * 3));
     const targetColors = Array.from({ length: numScenes }, () => new Float32Array(PARTICLE_COUNT * 3));
 
@@ -106,34 +156,72 @@ export default function CosmicSpaceCanvas() {
       return seed / 233280;
     }
 
-    // --- SCENE 0: COSMIC STARFIELD (Text on LEFT -> Particle Cluster on RIGHT: +320) ---
-    for (let i = 0; i < PARTICLE_COUNT; i++) {
+    // =========================================================================
+    // 1. UNIVERSAL FULL-VIEWPORT AMBIENT COSMIC STARFIELD FOR ALL SCENES
+    // =========================================================================
+    for (let s = 0; s < numScenes; s++) {
+      let starSeed = 1000 + s * 97;
+      function starRnd() {
+        starSeed = (starSeed * 9301 + 49297) % 233280;
+        return starSeed / 233280;
+      }
+      for (let i = 0; i < AMBIENT_COUNT; i++) {
+        const i3 = i * 3;
+        if (s === 1) {
+          // Ambient stars in Scene 2 cluster subtly around the globe atmosphere while spanning the screen
+          targets[s][i3] = (starRnd() - 0.5) * 2000 + globeCenterOffsetX * 0.25;
+          targets[s][i3 + 1] = (starRnd() - 0.5) * 1300;
+          targets[s][i3 + 2] = -220 + starRnd() * 1100;
+        } else {
+          // Full horizontal screen span: -1100 to +1100
+          targets[s][i3] = (starRnd() - 0.5) * 2200;
+          targets[s][i3 + 1] = (starRnd() - 0.5) * 1400;
+          targets[s][i3 + 2] = -250 + starRnd() * 1150;
+        }
+
+        const roll = starRnd();
+        let col;
+        if (roll < 0.35) col = COLOR_PALETTE.softWhite;
+        else if (roll < 0.65) col = COLOR_PALETTE.electricBlue;
+        else if (roll < 0.85) col = COLOR_PALETTE.cyan;
+        else col = COLOR_PALETTE.goldenYellow;
+
+        targetColors[s][i3] = col[0] / 255;
+        targetColors[s][i3 + 1] = col[1] / 255;
+        targetColors[s][i3 + 2] = col[2] / 255;
+      }
+    }
+
+    // =========================================================================
+    // 2. SCENE-SPECIFIC FORMATIONS & MORPH TARGETS (FEATURE_COUNT PARTICLES)
+    // =========================================================================
+
+    // --- SCENE 0: INTRO COSMIC STARFIELD & GALAXY ARMS (Full screen spread) ---
+    for (let fi = 0; fi < FEATURE_COUNT; fi++) {
+      const i = AMBIENT_COUNT + fi;
       const i3 = i * 3;
       const layer = rnd();
-      let depthSpan, spreadX, spreadY;
-      let col;
+      let depthSpan, spreadX, spreadY, col;
 
       if (layer < 0.5) {
-        depthSpan = 500 + rnd() * 1000;
-        spreadX = 1400;
-        spreadY = 1000;
-        col = rnd() < 0.8 ? COLOR_PALETTE.softWhite : COLOR_PALETTE.electricBlue;
+        depthSpan = 400 + rnd() * 800;
+        spreadX = 1800;
+        spreadY = 1100;
+        col = rnd() < 0.75 ? COLOR_PALETTE.softWhite : COLOR_PALETTE.electricBlue;
       } else if (layer < 0.85) {
         depthSpan = 100 + rnd() * 400;
-        spreadX = 1000;
-        spreadY = 750;
+        spreadX = 1400;
+        spreadY = 850;
         col = rnd() < 0.6 ? COLOR_PALETTE.cyan : (rnd() < 0.85 ? COLOR_PALETTE.softWhite : COLOR_PALETTE.goldenYellow);
       } else {
-        depthSpan = -200 + rnd() * 300;
-        spreadX = 750;
-        spreadY = 550;
+        depthSpan = -150 + rnd() * 300;
+        spreadX = 1100;
+        spreadY = 700;
         col = rnd() < 0.5 ? COLOR_PALETTE.goldenYellow : COLOR_PALETTE.warmOrange;
       }
 
-      // Biased cluster towards the right to complement left-aligned text
-      const biasX = rnd() < 0.65 ? 320 + (rnd() - 0.5) * 600 : (rnd() - 0.5) * spreadX * 2;
-      targets[0][i3] = biasX;
-      targets[0][i3 + 1] = (rnd() - 0.5) * spreadY * 2;
+      targets[0][i3] = (rnd() - 0.5) * spreadX;
+      targets[0][i3 + 1] = (rnd() - 0.5) * spreadY;
       targets[0][i3 + 2] = depthSpan;
 
       targetColors[0][i3] = col[0] / 255;
@@ -141,132 +229,51 @@ export default function CosmicSpaceCanvas() {
       targetColors[0][i3 + 2] = col[2] / 255;
     }
 
-    // --- SCENE 1: AMBIENT STARFIELD BACKGROUND (No duplicate globe; single globe formed by MarketingGlobe) ---
-    for (let i = 0; i < PARTICLE_COUNT; i++) {
+    // --- SCENE 1: SCREEN 2 AMBIENT SPACE STARFIELD (Single globe rendered exclusively by MarketingGlobe) ---
+    for (let fi = 0; fi < FEATURE_COUNT; fi++) {
+      const i = AMBIENT_COUNT + fi;
       const i3 = i * 3;
-      const angle = rnd() * Math.PI * 2;
-      const spreadR = 400 + rnd() * 850;
-      
-      targets[1][i3] = Math.cos(angle) * spreadR;
-      targets[1][i3 + 1] = (rnd() - 0.5) * 900;
-      targets[1][i3 + 2] = -200 + rnd() * 800;
 
-      const col = rnd() < 0.6 ? COLOR_PALETTE.electricBlue : (rnd() < 0.85 ? COLOR_PALETTE.cyan : COLOR_PALETTE.softWhite);
+      // Full horizontal and vertical spread across viewport
+      targets[1][i3] = (rnd() - 0.5) * 2200;
+      targets[1][i3 + 1] = (rnd() - 0.5) * 1400;
+      targets[1][i3 + 2] = -250 + rnd() * 1100;
+
+      const col = rnd() < 0.50 ? COLOR_PALETTE.electricBlue : (rnd() < 0.80 ? COLOR_PALETTE.cyan : COLOR_PALETTE.softWhite);
       targetColors[1][i3] = col[0] / 255;
       targetColors[1][i3 + 1] = col[1] / 255;
       targetColors[1][i3 + 2] = col[2] / 255;
     }
 
-    // --- SCENE 2: GLOBE DIVIDES & TRANSFORMS INTO 3D LAMP BESIDE SCENE 1 (LEFT: -340) ---
-    for (let i = 0; i < PARTICLE_COUNT; i++) {
-      const i3 = i * 3;
-      const ratio = i / PARTICLE_COUNT;
-      let x = 0, y = 0, z = 0;
-      let col = COLOR_PALETTE.goldenYellow;
-
-      if (ratio < 0.42) {
-        // Main Lamp Body (Elongated teardrop / elliptical vessel)
-        const u = rnd() * Math.PI * 2;
-        const v = rnd() * Math.PI;
-        const bodyLen = 135;
-        const bodyWidth = 62 * Math.sin(v) * (1 + 0.3 * Math.cos(u));
-        x = -340 - 15 + Math.cos(v) * bodyLen * 0.85;
-        y = 20 + Math.sin(v) * Math.sin(u) * 46;
-        z = Math.sin(v) * Math.cos(u) * bodyWidth * 0.75;
-        col = rnd() < 0.65 ? COLOR_PALETTE.goldenYellow : (rnd() < 0.88 ? COLOR_PALETTE.warmOrange : COLOR_PALETTE.softWhite);
-      } else if (ratio < 0.56) {
-        // Flared Base Pedestal
-        const u = rnd() * Math.PI * 2;
-        const baseH = rnd();
-        const baseR = 42 * (1 - baseH * 0.5) + (rnd() - 0.5) * 4;
-        x = -340 - 15 + (rnd() - 0.5) * 12;
-        y = 68 + baseH * 24;
-        z = Math.sin(u) * baseR * 0.65;
-        x += Math.cos(u) * baseR;
-        col = rnd() < 0.8 ? COLOR_PALETTE.goldenYellow : COLOR_PALETTE.warmOrange;
-      } else if (ratio < 0.76) {
-        // Graceful Long Curved Spout (extending right & upwards towards center)
-        const t = (ratio - 0.56) / 0.20;
-        const spoutAngle = rnd() * Math.PI * 2;
-        const spoutRadius = (1 - t * 0.65) * 16 + 3.5;
-        const p0 = { x: -340 + 40, y: 15 };
-        const p1 = { x: -340 + 115, y: 0 };
-        const p2 = { x: -340 + 175, y: -45 };
-        const p3 = { x: -340 + 190, y: -75 };
-        const cx = Math.pow(1 - t, 3) * p0.x + 3 * Math.pow(1 - t, 2) * t * p1.x + 3 * (1 - t) * Math.pow(t, 2) * p2.x + Math.pow(t, 3) * p3.x;
-        const cy = Math.pow(1 - t, 3) * p0.y + 3 * Math.pow(1 - t, 2) * t * p1.y + 3 * (1 - t) * Math.pow(t, 2) * p2.y + Math.pow(t, 3) * p3.y;
-
-        x = cx + Math.cos(spoutAngle) * spoutRadius;
-        y = cy + Math.sin(spoutAngle) * spoutRadius;
-        z = Math.sin(spoutAngle) * spoutRadius * 0.8;
-        col = t > 0.7 ? (rnd() < 0.6 ? COLOR_PALETTE.cyan : COLOR_PALETTE.electricBlue) : COLOR_PALETTE.goldenYellow;
-      } else if (ratio < 0.88) {
-        // High Arched Handle on the outer left side
-        const t = (ratio - 0.76) / 0.12;
-        const handleAngle = rnd() * Math.PI * 2;
-        const handleR = 5.5;
-        const archT = t * Math.PI * 1.35 - 0.2;
-        const hx = -340 - 85 - Math.sin(archT) * 42;
-        const hy = -10 - Math.cos(archT) * 45;
-
-        x = hx + Math.cos(handleAngle) * handleR;
-        y = hy + Math.sin(handleAngle) * handleR;
-        z = Math.sin(handleAngle) * handleR;
-        col = COLOR_PALETTE.goldenYellow;
-      } else if (ratio < 0.94) {
-        // Ornate Lid & Glowing Finial Pinnacle
-        const t = (ratio - 0.88) / 0.06;
-        const u = rnd() * Math.PI * 2;
-        const lidR = (1 - t) * 24 + 2;
-        x = -340 - 15 + Math.cos(u) * lidR;
-        y = -15 - t * 32;
-        z = Math.sin(u) * lidR * 0.7;
-        col = t > 0.75 ? COLOR_PALETTE.softWhite : COLOR_PALETTE.goldenYellow;
-      } else {
-        // Surrounding Magical Starlight Mist & Dust Halo
-        const u = rnd() * Math.PI * 2;
-        const v = rnd() * Math.PI;
-        const haloR = 90 + rnd() * 110;
-        x = -340 + Math.sin(v) * Math.cos(u) * haloR;
-        y = 10 + Math.cos(v) * haloR * 0.85;
-        z = Math.sin(v) * Math.sin(u) * haloR * 0.7;
-        col = rnd() < 0.5 ? COLOR_PALETTE.cyan : (rnd() < 0.75 ? COLOR_PALETTE.goldenYellow : COLOR_PALETTE.softWhite);
-      }
-
-      targets[2][i3] = x;
-      targets[2][i3 + 1] = y;
-      targets[2][i3 + 2] = z;
-
-      targetColors[2][i3] = col[0] / 255;
-      targetColors[2][i3 + 1] = col[1] / 255;
-      targetColors[2][i3 + 2] = col[2] / 255;
-    }
-
-    // --- SCENE 2: THE EXPLOSION (Text on LEFT -> Explosion on RIGHT: +340) ---
-    for (let i = 0; i < PARTICLE_COUNT; i++) {
+    // --- SCENE 2: BALANCED EXPANDING COSMIC ENERGY BURST (Full Screen Width) ---
+    for (let fi = 0; fi < FEATURE_COUNT; fi++) {
+      const i = AMBIENT_COUNT + fi;
       const i3 = i * 3;
       const phi = Math.acos(2 * rnd() - 1);
       const theta = 2 * Math.PI * rnd();
-      const r = 60 + Math.pow(rnd(), 1.2) * 240;
+      // Expanded across the whole width so both left and right are active
+      const r = 80 + Math.pow(rnd(), 1.1) * 480;
+      const sideOffset = (rnd() - 0.5) * 600;
 
-      targets[2][i3] = 340 + r * Math.sin(phi) * Math.cos(theta);
+      targets[2][i3] = sideOffset + r * Math.sin(phi) * Math.cos(theta);
       targets[2][i3 + 1] = r * Math.sin(phi) * Math.sin(theta);
-      targets[2][i3 + 2] = 50 + r * Math.cos(phi);
+      targets[2][i3 + 2] = 20 + r * Math.cos(phi);
 
-      const col = rnd() < 0.4 ? COLOR_PALETTE.goldenYellow : (rnd() < 0.7 ? COLOR_PALETTE.warmOrange : COLOR_PALETTE.electricBlue);
+      const col = rnd() < 0.4 ? COLOR_PALETTE.goldenYellow : (rnd() < 0.7 ? COLOR_PALETTE.warmOrange : COLOR_PALETTE.cyan);
       targetColors[2][i3] = col[0] / 255;
       targetColors[2][i3 + 1] = col[1] / 255;
       targetColors[2][i3 + 2] = col[2] / 255;
     }
 
-    // --- SCENE 3: THE FORMATION (Text on RIGHT -> Swirling Ring on LEFT: -300) ---
-    for (let i = 0; i < PARTICLE_COUNT; i++) {
+    // --- SCENE 3: SWIRLING FORMATION HELIX ---
+    for (let fi = 0; fi < FEATURE_COUNT; fi++) {
+      const i = AMBIENT_COUNT + fi;
       const i3 = i * 3;
-      const t = (i / PARTICLE_COUNT) * Math.PI * 16;
-      const r = 80 + Math.sin(t * 0.5) * 160 + (rnd() - 0.5) * 40;
+      const t = (fi / FEATURE_COUNT) * Math.PI * 16;
+      const r = 120 + Math.sin(t * 0.5) * 220 + (rnd() - 0.5) * 50;
 
-      targets[3][i3] = -300 + Math.cos(t) * r;
-      targets[3][i3 + 1] = ((i / PARTICLE_COUNT) - 0.5) * 420 + Math.sin(t) * 30;
+      targets[3][i3] = (rnd() - 0.5) * 350 + Math.cos(t) * r;
+      targets[3][i3 + 1] = ((fi / FEATURE_COUNT) - 0.5) * 550 + Math.sin(t) * 35;
       targets[3][i3 + 2] = Math.sin(t) * r;
 
       const col = rnd() < 0.5 ? COLOR_PALETTE.goldenYellow : COLOR_PALETTE.cyan;
@@ -275,16 +282,15 @@ export default function CosmicSpaceCanvas() {
       targetColors[3][i3 + 2] = col[2] / 255;
     }
 
-    // --- SCENE 4: THE 3D GENIE LAMP (Full Parametric Particle Lamp) ---
-    // Lamp parts: 45% Main Ellipsoid Body, 15% Base Pedestal, 20% Curved Long Spout, 12% Arched Handle, 8% Lid & Finial Knob
-    for (let i = 0; i < PARTICLE_COUNT; i++) {
+    // --- SCENE 4: THE 3D GENIE LAMP ---
+    for (let fi = 0; fi < FEATURE_COUNT; fi++) {
+      const i = AMBIENT_COUNT + fi;
       const i3 = i * 3;
-      const ratio = i / PARTICLE_COUNT;
+      const ratio = fi / FEATURE_COUNT;
       let x = 0, y = 0, z = 0;
       let col = COLOR_PALETTE.goldenYellow;
 
       if (ratio < 0.45) {
-        // Main Lamp Body (Elongated teardrop / elliptical vessel)
         const u = rnd() * Math.PI * 2;
         const v = rnd() * Math.PI;
         const bodyLen = 140;
@@ -294,7 +300,6 @@ export default function CosmicSpaceCanvas() {
         z = Math.sin(v) * Math.cos(u) * bodyWidth * 0.75;
         col = rnd() < 0.7 ? COLOR_PALETTE.goldenYellow : (rnd() < 0.9 ? COLOR_PALETTE.warmOrange : COLOR_PALETTE.softWhite);
       } else if (ratio < 0.60) {
-        // Flared Base Pedestal
         const u = rnd() * Math.PI * 2;
         const baseH = rnd();
         const baseR = 45 * (1 - baseH * 0.5) + (rnd() - 0.5) * 4;
@@ -304,7 +309,6 @@ export default function CosmicSpaceCanvas() {
         x += Math.cos(u) * baseR;
         col = rnd() < 0.8 ? COLOR_PALETTE.goldenYellow : COLOR_PALETTE.warmOrange;
       } else if (ratio < 0.80) {
-        // Graceful Long Curved Spout (extending to the right and turning upwards)
         const t = (ratio - 0.60) / 0.20;
         const spoutAngle = rnd() * Math.PI * 2;
         const spoutRadius = (1 - t * 0.65) * 18 + 4;
@@ -320,7 +324,6 @@ export default function CosmicSpaceCanvas() {
         z = Math.sin(spoutAngle) * spoutRadius * 0.8;
         col = t > 0.75 ? (rnd() < 0.6 ? COLOR_PALETTE.cyan : COLOR_PALETTE.electricBlue) : COLOR_PALETTE.goldenYellow;
       } else if (ratio < 0.92) {
-        // High Arched Handle on the left side
         const t = (ratio - 0.80) / 0.12;
         const handleAngle = rnd() * Math.PI * 2;
         const handleR = 6;
@@ -333,7 +336,6 @@ export default function CosmicSpaceCanvas() {
         z = Math.sin(handleAngle) * handleR;
         col = COLOR_PALETTE.goldenYellow;
       } else {
-        // Ornate Lid & Finial Knob with glowing pinnacle
         const t = (ratio - 0.92) / 0.08;
         const u = rnd() * Math.PI * 2;
         const lidR = (1 - t) * 26 + 2;
@@ -343,8 +345,7 @@ export default function CosmicSpaceCanvas() {
         col = t > 0.8 ? COLOR_PALETTE.softWhite : COLOR_PALETTE.goldenYellow;
       }
 
-      // Shift 3D Lamp to the RIGHT to complement left-aligned text
-      targets[4][i3] = 340 + x;
+      targets[4][i3] = 200 + x;
       targets[4][i3 + 1] = y;
       targets[4][i3 + 2] = z;
 
@@ -353,15 +354,16 @@ export default function CosmicSpaceCanvas() {
       targetColors[4][i3 + 2] = col[2] / 255;
     }
 
-    // --- SCENE 5: LAMP DISSOLUTION (Text on RIGHT -> Sand Stream on LEFT: -320) ---
-    for (let i = 0; i < PARTICLE_COUNT; i++) {
+    // --- SCENE 5: LAMP DISSOLUTION ---
+    for (let fi = 0; fi < FEATURE_COUNT; fi++) {
+      const i = AMBIENT_COUNT + fi;
       const i3 = i * 3;
-      const ratio = i / PARTICLE_COUNT;
+      const ratio = fi / FEATURE_COUNT;
       if (ratio < 0.5) {
         const t = ratio / 0.5;
         const spiralAngle = t * Math.PI * 8;
-        const spiralR = 25 + t * 90;
-        targets[5][i3] = -320 + 160 + Math.cos(spiralAngle) * spiralR - t * 120;
+        const spiralR = 30 + t * 110;
+        targets[5][i3] = -180 + Math.cos(spiralAngle) * spiralR - t * 120;
         targets[5][i3 + 1] = -75 - t * 220 + (rnd() - 0.5) * 30;
         targets[5][i3 + 2] = Math.sin(spiralAngle) * spiralR;
         const col = rnd() < 0.6 ? COLOR_PALETTE.cyan : COLOR_PALETTE.electricBlue;
@@ -370,8 +372,8 @@ export default function CosmicSpaceCanvas() {
         targetColors[5][i3 + 2] = col[2] / 255;
       } else {
         const t = (ratio - 0.5) / 0.5;
-        const drift = (rnd() - 0.5) * 120;
-        targets[5][i3] = -320 + (targets[4][i3] - 340) + drift * 0.8;
+        const drift = (rnd() - 0.5) * 160;
+        targets[5][i3] = (targets[4][i3] - 150) + drift;
         targets[5][i3 + 1] = targets[4][i3 + 1] + t * 240 + rnd() * 40;
         targets[5][i3 + 2] = targets[4][i3 + 2] + (rnd() - 0.5) * 60;
         const col = rnd() < 0.6 ? COLOR_PALETTE.goldenYellow : COLOR_PALETTE.warmOrange;
@@ -381,15 +383,16 @@ export default function CosmicSpaceCanvas() {
       }
     }
 
-    // --- SCENE 6: MAGICAL PARTICLE WATERFALL (Text on LEFT -> Waterfall on RIGHT: +340) ---
-    for (let i = 0; i < PARTICLE_COUNT; i++) {
+    // --- SCENE 6: MAGICAL PARTICLE WATERFALL ---
+    for (let fi = 0; fi < FEATURE_COUNT; fi++) {
+      const i = AMBIENT_COUNT + fi;
       const i3 = i * 3;
-      const t = i / PARTICLE_COUNT;
+      const t = fi / FEATURE_COUNT;
       const spiralTheta = t * Math.PI * 18 + rnd() * 0.4;
-      const vortexR = (1 - Math.pow(t - 0.5, 2) * 2) * 180 + 30 + (rnd() - 0.5) * 25;
+      const vortexR = (1 - Math.pow(t - 0.5, 2) * 2) * 220 + 40 + (rnd() - 0.5) * 30;
 
-      targets[6][i3] = 340 + Math.cos(spiralTheta) * vortexR;
-      targets[6][i3 + 1] = (t - 0.5) * 560;
+      targets[6][i3] = 160 + Math.cos(spiralTheta) * vortexR;
+      targets[6][i3 + 1] = (t - 0.5) * 600;
       targets[6][i3 + 2] = Math.sin(spiralTheta) * vortexR;
 
       const col = rnd() < 0.4 ? COLOR_PALETTE.cyan : (rnd() < 0.7 ? COLOR_PALETTE.electricBlue : (rnd() < 0.9 ? COLOR_PALETTE.goldenYellow : COLOR_PALETTE.softWhite));
@@ -398,10 +401,11 @@ export default function CosmicSpaceCanvas() {
       targetColors[6][i3 + 2] = col[2] / 255;
     }
 
-    // --- SCENE 7: THE 3D COSMIC GENIE ENTITY (Text on LEFT -> Genie on RIGHT: +350) ---
-    for (let i = 0; i < PARTICLE_COUNT; i++) {
+    // --- SCENE 7: THE 3D COSMIC GENIE ENTITY ---
+    for (let fi = 0; fi < FEATURE_COUNT; fi++) {
+      const i = AMBIENT_COUNT + fi;
       const i3 = i * 3;
-      const ratio = i / PARTICLE_COUNT;
+      const ratio = fi / FEATURE_COUNT;
       let x = 0, y = 0, z = 0;
       let col = COLOR_PALETTE.cyan;
 
@@ -450,13 +454,31 @@ export default function CosmicSpaceCanvas() {
         col = t > 0.7 ? (rnd() < 0.5 ? COLOR_PALETTE.goldenYellow : COLOR_PALETTE.warmOrange) : COLOR_PALETTE.cyan;
       }
 
-      targets[7][i3] = 350 + x;
+      targets[7][i3] = 180 + x;
       targets[7][i3 + 1] = y;
       targets[7][i3 + 2] = z;
 
       targetColors[7][i3] = col[0] / 255;
       targetColors[7][i3 + 1] = col[1] / 255;
       targetColors[7][i3 + 2] = col[2] / 255;
+    }
+
+    // --- SCENE 8: UNIFIED COSMIC CONNECTOR BRIDGE ---
+    for (let fi = 0; fi < FEATURE_COUNT; fi++) {
+      const i = AMBIENT_COUNT + fi;
+      const i3 = i * 3;
+      const t = fi / FEATURE_COUNT;
+      const angle = t * Math.PI * 12;
+      const spread = 250 + Math.sin(t * Math.PI * 2) * 150;
+
+      targets[8][i3] = (t - 0.5) * 1800 + Math.cos(angle) * spread * 0.4;
+      targets[8][i3 + 1] = Math.sin(angle) * spread * 0.5 + (rnd() - 0.5) * 80;
+      targets[8][i3 + 2] = -150 + rnd() * 600;
+
+      const col = rnd() < 0.4 ? COLOR_PALETTE.cyan : (rnd() < 0.7 ? COLOR_PALETTE.electricBlue : COLOR_PALETTE.softWhite);
+      targetColors[8][i3] = col[0] / 255;
+      targetColors[8][i3 + 1] = col[1] / 255;
+      targetColors[8][i3 + 2] = col[2] / 255;
     }
 
     // Dynamic particle simulation arrays
@@ -500,8 +522,8 @@ export default function CosmicSpaceCanvas() {
       const dt = Math.min((now - lastTime) / 1000, 0.1);
       lastTime = now;
 
-      // Smooth scroll interpolation
-      scrollProgress += (targetScrollProgress - scrollProgress) * 0.08;
+      // Smooth scroll interpolation (crisp and immediate catch-up)
+      scrollProgress += (targetScrollProgress - scrollProgress) * 0.22;
 
       // Cursor spring physics
       mouse.x += (mouse.targetX - mouse.x) * 0.12;
@@ -553,9 +575,11 @@ export default function CosmicSpaceCanvas() {
       for (let i = 0; i < PARTICLE_COUNT; i++) {
         const i3 = i * 3;
 
-        const tx = targets[stage0][i3] * (1 - blend) + targets[stage1][i3] * blend;
-        const ty = targets[stage0][i3 + 1] * (1 - blend) + targets[stage1][i3 + 1] * blend;
-        const tz = targets[stage0][i3 + 2] * (1 - blend) + targets[stage1][i3 + 2] * blend;
+        let tx = targets[stage0][i3] * (1 - blend) + targets[stage1][i3] * blend;
+        let ty = targets[stage0][i3 + 1] * (1 - blend) + targets[stage1][i3 + 1] * blend;
+        let tz = targets[stage0][i3 + 2] * (1 - blend) + targets[stage1][i3 + 2] * blend;
+
+
 
         const cr = targetColors[stage0][i3] * (1 - blend) + targetColors[stage1][i3] * blend;
         const cg = targetColors[stage0][i3 + 1] * (1 - blend) + targetColors[stage1][i3 + 1] * blend;
@@ -577,13 +601,8 @@ export default function CosmicSpaceCanvas() {
         curB[i] += (cb - curB[i]) * 0.1;
       }
 
-      // Depth sorting
-      indices.sort((a, b) => curZ[b] - curZ[a]);
-
-      // Render all particles
-      for (let idx = 0; idx < PARTICLE_COUNT; idx++) {
-        const i = indices[idx];
-
+      // Render particles directly without sorting
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
         let x = curX[i];
         let y = curY[i];
         let z = curZ[i] - cameraZ;
